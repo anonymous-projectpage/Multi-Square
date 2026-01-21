@@ -1,2 +1,150 @@
-# Multi-Square
-2026 ICML code
+# Multi<sup>2</sup> LLM
+Multi<sup>2</sup>: A Multi-agent LLM Framework for Hierarchical Multi-turn Decision-making with Offline Reinforcement Learning
+
+### Anaconda Installation
+1. Install prerequisites (before installing Anaconda)
+```
+sudo apt-get update
+sudo apt-get upgrade   
+sudo apt-get install libgl1-mesa-glx libegl1-mesa libxrandr2 libxss1 libxcursor1 libxcomposite1 libasound2 libxi6 libxtst6
+```
+2. Download the [Anaconda installer(Linux version)](https://repo.anaconda.com/archive/Anaconda3-2020.07-Linux-x86_64.sh)
+3. Install Anaconda
+```
+sudo apt-get install python3 python python3-pip python-pip git
+bash ~/Downloads/Anaconda3-2020.07-Linux-x86_64.sh
+```
+### Environment Setup
+1. Benchmark dependencies
+Follow the instructions in the [ScienceWorld](https://github.com/allenai/ScienceWorld) and [AlfWorld](https://github.com/alfworld) to install the required environments.
+2. Clone this repository
+```
+git clone https://github.com/park-sangeun/Multi-2-LLM-Agent.git
+```
+3. Create and activate a virtual environment
+```
+conda create -n Multi python=3.10 -y
+conda activate Multi
+pip install -r requirements.txt
+```
+
+### Model Training
+
+#### 1. Offline training
+
+##### 1.1 Supervised Fine-Tuning for System 1
+
+- Set the configuration and base model in `./config/multi_bc.json`:
+```json
+{
+  "benchmark": "scienceworld",
+  "model_name": "/path/to/your/backbone"
+}
+```
+> `benchmark` can be one of: `"scienceworld"`, `"alfworld"`, `"textcraft"`.
+
+- Set the checkpoint path in `./alg/multi_SFT_sys1.py`:
+```
+base_ckpt = "/path/to/your/checkpoint"
+```
+- Choose learning rate candidates in `./train_multi_bc.py`:
+```
+lr_grid = [candidate1, candidate2, ...]
+```
+- Run the training script:
+```bash
+python train_multi_bc.py
+```
+
+##### 1.2 Structure Formatting for System 2
+- Set the configuration and base model in `./config/multi_rl_sft.json`:
+```json
+{
+  "benchmark": "scienceworld",
+  "model_name": "/path/to/your/backbone"
+}
+```
+> benchmark can be one of: "scienceworld", "alfworld", "textcraft".
+- Set the load path in `./alg/multi_warmup_sys2.py`:
+```
+base_ckpt = "/path/to/your/checkpoint"
+```
+- Run the training script:
+```bash
+python train_multi_rl_warmup.py
+```
+
+##### 1.3 Offline Reinforcement Learning for System 2
+- Set the configuration and base model in `./config/multi_rl.json`:
+```json
+{
+  "benchmark": "scienceworld",
+  "model_name": "/path/to/your/backbone"
+}
+```
+> benchmark can be one of: "scienceworld", "alfworld", "textcraft".
+
+- Depending on the benchmark, change the import in `./train_multi_rl.py`:
+
+  - **ScienceWorld**
+    ```python
+    from alg.multi_rl_sys2_advantage import Multi2
+    ```
+
+  - **ALFWorld**
+    ```python
+    from alg.multi_rl_sys2_advantage_alfworld import Multi2
+    ```
+
+  - **TextCraft**
+    ```python
+    from alg.multi_rl_sys2_advantage_textcraft import Multi2
+    ```
+- Set the trained policy roots in the corresponding algorithm file under `./alg/` <br>
+(You must manually specify the paths to the trained System 1 model and the System 2 warmup model.) <br>
+Example:
+```python
+# e.g., ./alg/multi_rl_sys2_advantage*.py
+
+# Path to the trained System 1 (SFT) checkpoint
+high_path = "/path/to/your/system1_sft_checkpoint"
+
+# Path to the trained System 2 warmup checkpoint
+low_path = "/path/to/your/system2_warmup_checkpoint"
+```
+
+- Run the training script:
+```bash
+python train_multi_rl.py
+```
+
+
+### Evaluation - ScienceWorld
+- Divide Seen and Unseen test dataset
+```
+python collect_test_data.py --split dev
+python collect_test_data.py --split test
+```
+- Add is_seen Flag for comparison with train dataset and test environment
+```
+python add_is_seen.py --split dev
+python add_is_seen.py --split test
+```
+
+- Set **self.high_checkpoint_dir** and **self.low_checkpoint_dir** (the model path) in ```./alg/eval_multi_sci.py``` (to point to the trained model)
+- Set the configuration and base model in ```./config/eval_multi_rl.json```.
+- Then run the evaluation
+```
+python eval_multi.py
+```
+- If using deepspeed,
+```
+python eval_multi_deepspeed.py
+```
+
+### Evaluation - AlfWorld
+- Set **self.high_checkpoint_dir** and **self.low_checkpoint_dir** (the model path) in ```./alg/eval_multi_alf.py``` (to point to the trained model)
+- Set the configuration and base model in ```./config/eval_multi_rl.json```.
+```
+python eval_multi_alf.py
+```
