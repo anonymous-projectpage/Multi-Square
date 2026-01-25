@@ -149,57 +149,13 @@
       margin-top: 22px;
       display: grid;
       gap: 22px;
-      grid-template-columns: 0.75fr 1.25fr; /* wider framework column */
-      align-items: stretch; /* make both cards take the same row height */
-      --pair-h: clamp(420px, 62vh, 760px); /* shared height for Abstract + Framework on desktop */
+      grid-template-columns: 1fr; /* stacked layout: Abstract row, then Framework row */
+      align-items: stretch;
     }
 
-    /* Make Abstract and Framework the same height (desktop) */
-    .content-grid > #abstract.section,
-    .content-grid > #framework.section{
-      height: var(--pair-h);
-      display: flex;
-      flex-direction: column;
-    }
 
     /* Let the Abstract text scroll if it exceeds the shared height */
-    #abstract{
-      position: relative;
-    }
-
-    /* Remove the scrollbar and use a subtle fade-out for overflow */
-    #abstract .section-text{
-      overflow: hidden;
-      padding-right: 0;
-      -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
-      mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
-    }
-/* Let the figure area scroll if the image/caption exceed the shared height */
-    #framework .figure{
-      flex: 1 1 auto;
-      overflow: hidden;            /* no scrollbars; keep the full figure visible */
-      display: flex;
-      flex-direction: column;
-      justify-content: center;     /* center figure content vertically */
-    }
-
-    /* Fit the framework image within the shared card height */
-    #framework .figure img{
-      width: 100%;
-      height: auto;
-      max-height: 100%;
-      object-fit: contain;
-    }
-
-/* On small screens, stack and use natural height */
-    @media (max-width: 900px){
-      .content-grid{ --pair-h: auto; }
-      .content-grid > #abstract.section,
-      .content-grid > #framework.section{
-        height: auto;
-      }
-      #abstract .section-text{ overflow: visible; }
-      #framework .figure{ overflow: visible; }
+    #framework .figure{ overflow: visible; }
     }
 
     /* Scrollbar styling to match the dark UI (WebKit + Firefox) */
@@ -275,8 +231,6 @@
     }
 
     /* Small screens */
-    @media (max-width: 900px){
-      .content-grid{ grid-template-columns: 1fr; }
     }
     @media (max-width: 520px){
       header{ padding: 22px 16px; }
@@ -433,8 +387,6 @@
       font-size: 14px;
     }
 
-    @media (max-width: 900px){
-      .bench-grid{ grid-template-columns: 1fr; }
     }
 
 
@@ -512,6 +464,18 @@
       border: 1px solid rgba(255,255,255,.10);
       background: rgba(255,255,255,.02);
     }
+
+    /* Stacked layout needs no special handling, but keep mobile comfortable */
+    @media (max-width: 900px){
+      .content-grid{ gap: 18px; }
+    }
+
+    /* Ensure figures never create inner scrollbars */
+    #framework .figure,
+/* Make images fit their container cleanly */
+    #framework .figure img,
+/* Optional: slightly larger captions when full-width */
+    #framework .caption,
 </style>
 </head>
 
@@ -617,25 +581,6 @@ Across diverse interactive environments, <code>Multi</code><sup>2</sup> consiste
         </figure>
       </section>
     </div>
-
-
-    
-      <!-- Framework Execution / How It Works Figure -->
-      <section class="section" id="how-it-works" style="margin-top: 22px;">
-        <h2 class="section-title">How It Works</h2>
-
-        <figure class="figure">
-          <!-- TODO: Put your diagram at Figure/how_it_works.png (or change the src) -->
-          <img class="zoomable" src="Figure/how_it_works.png" alt="Multi² framework execution flow" loading="lazy" />
-          <figcaption class="caption">
-            Multi² execution flow: how System 1 (high-level) and System 2 (low-level) coordinate at inference time. (Click to enlarge)
-          </figcaption>
-        </figure>
-
-        <p class="hint">
-          Put your diagram at <code>Figure/how_it_works.png</code>, or change the <code>src</code> above.
-        </p>
-      </section>
 
 <!-- Benchmarks -->
     <section class="section" id="benchmarks" style="margin-top: 22px;">
