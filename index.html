@@ -664,12 +664,13 @@ Across diverse interactive environments, <code>Multi</code><sup>2</sup> consiste
       </div>
     </section>
 
+    
     <!-- How to Run / Reproducibility -->
     <section class="section" id="how-to-run" style="margin-top: 22px;">
       <h2 class="section-title">How to Run</h2>
 
       <p class="section-text">
-        Below are the setup/evaluation commands from our installation README. If anything differs from your environment,
+        Below are the setup and training commands from our installation README. If anything differs from your environment,
         treat these as reference commands and follow the repository README for the most up-to-date instructions.
       </p>
 
@@ -684,8 +685,8 @@ sudo apt-get install libgl1-mesa-glx libegl1-mesa libxrandr2 libxss1 libxcursor1
 
           <h3 class="details-title">Install Anaconda</h3>
           <p class="section-text" style="margin-top: 0;">
-            Download 
-            <a href="https://repo.anaconda.com/archive/Anaconda3-2020.07-Linux-x86_64.sh" target="_blank" rel="noopener noreferrer">Anaconda installer(Linux version)</a>,
+            Download
+            <a href="https://repo.anaconda.com/archive/Anaconda3-2020.07-Linux-x86_64.sh" target="_blank" rel="noopener noreferrer">Anaconda installer (Linux version)</a>,
             and run:
           </p>
           <pre class="codeblock"><code>sudo apt-get install python3 python python3-pip python-pip git
@@ -698,19 +699,18 @@ bash ~/Downloads/Anaconda3-2020.07-Linux-x86_64.sh</code></pre>
       <details class="details">
         <summary>Environment Setup</summary>
         <div class="details-body">
-      
+
           <h3 class="details-title">Benchmark dependencies</h3>
           <p class="section-text" style="margin-top: 0;">
             Follow the official instructions to install each benchmark environment:
             <a href="https://github.com/allenai/ScienceWorld" target="_blank" rel="noopener noreferrer">ScienceWorld</a>,
-            <a href="https://github.com/alfworld" target="_blank" rel="noopener noreferrer">ALFWorld</a>,
-            <a href="https://github.com/archiki/ADaPT" target="_blank" rel="noopener noreferrer">TextCraft</a>.
+            <a href="https://github.com/alfworld" target="_blank" rel="noopener noreferrer">ALFWorld</a>.
           </p>
-      
+
           <h3 class="details-title">Clone this repository</h3>
           <pre class="codeblock"><code>git clone https://github.com/park-sangeun/Multi-2-LLM-Agent.git
 cd Multi-2-LLM-Agent</code></pre>
-      
+
           <h3 class="details-title">Create and activate a virtual environment</h3>
           <pre class="codeblock"><code>conda create -n Multi python=3.10 -y
 conda activate Multi
@@ -718,12 +718,12 @@ pip install -r requirements.txt</code></pre>
 
         </div>
       </details>
-      
+
       <!-- Model Training -->
       <details class="details">
         <summary>Model Training (Offline)</summary>
         <div class="details-body">
-      
+
           <h3 class="details-title">1.1 Supervised Fine-Tuning for System 1</h3>
           <p class="section-text" style="margin-top: 0;">
             Set the configuration and base model in <code>./config/multi_bc.json</code>.
@@ -734,21 +734,21 @@ pip install -r requirements.txt</code></pre>
   "benchmark": "scienceworld",
   "model_name": "/path/to/your/backbone"
 }</code></pre>
-      
+
           <p class="section-text">
             Set the checkpoint path in <code>./alg/multi_SFT_sys1.py</code>:
           </p>
           <pre class="codeblock"><code>base_ckpt = "/path/to/your/checkpoint"</code></pre>
-      
+
           <p class="section-text">
             Choose learning rate candidates in <code>./train_multi_bc.py</code>:
           </p>
           <pre class="codeblock"><code>lr_grid = [candidate1, candidate2, ...]</code></pre>
-      
+
           <p class="section-text">Run:</p>
           <pre class="codeblock"><code>python train_multi_bc.py</code></pre>
-      
-          <h3 class="details-title">1.2 Structure Formatting (Warmup) for System 2</h3>
+
+          <h3 class="details-title">1.2 Structure Formatting for System 2</h3>
           <p class="section-text" style="margin-top: 0;">
             Set the configuration and base model in <code>./config/multi_rl_sft.json</code>:
           </p>
@@ -756,15 +756,15 @@ pip install -r requirements.txt</code></pre>
   "benchmark": "scienceworld",
   "model_name": "/path/to/your/backbone"
 }</code></pre>
-      
+
           <p class="section-text">
             Set the load path in <code>./alg/multi_warmup_sys2.py</code>:
           </p>
           <pre class="codeblock"><code>base_ckpt = "/path/to/your/checkpoint"</code></pre>
-      
+
           <p class="section-text">Run:</p>
           <pre class="codeblock"><code>python train_multi_rl_warmup.py</code></pre>
-      
+
           <h3 class="details-title">1.3 Offline Reinforcement Learning for System 2</h3>
           <p class="section-text" style="margin-top: 0;">
             Set the configuration and base model in <code>./config/multi_rl.json</code>:
@@ -773,7 +773,7 @@ pip install -r requirements.txt</code></pre>
   "benchmark": "scienceworld",
   "model_name": "/path/to/your/backbone"
 }</code></pre>
-      
+
           <p class="section-text">
             Depending on the benchmark, change the import in <code>./train_multi_rl.py</code>:
           </p>
@@ -785,10 +785,10 @@ from alg.multi_rl_sys2_advantage_alfworld import Multi2
 
 # TextCraft
 from alg.multi_rl_sys2_advantage_textcraft import Multi2</code></pre>
-      
+
           <p class="section-text">
             Set the trained policy roots in the corresponding algorithm file under <code>./alg/</code>
-            (paths to trained System 1 + System 2 warmup):
+            (manually specify paths to the trained System 1 model and the System 2 structure-formatting model). Example:
           </p>
           <pre class="codeblock"><code># e.g., ./alg/multi_rl_sys2_advantage*.py
 
@@ -797,31 +797,9 @@ high_path = "/path/to/your/system1_sft_checkpoint"
 
 # Path to the trained System 2 warmup checkpoint
 low_path = "/path/to/your/system2_warmup_checkpoint"</code></pre>
-      
+
           <p class="section-text">Run:</p>
           <pre class="codeblock"><code>python train_multi_rl.py</code></pre>
-      
-        </div>
-      </details>
-
-      
-      <details class="details">
-        <summary>Evaluation</summary>
-        <div class="details-body">
-
-          <h3 class="details-title">ScienceWorld</h3>
-          <pre class="codeblock"><code>python eval_multi.py</code></pre>
-          <p class="section-text" style="margin-top: 0;">
-            (Optional) If using DeepSpeed:
-          </p>
-          <pre class="codeblock"><code>python eval_multi_deepspeed.py</code></pre>
-
-          <h3 class="details-title">ALFWorld</h3>
-          <ul class="bullets" style="margin-top: 0;">
-            <li>Set <code>self.high_checkpoint_dir</code> and <code>self.low_checkpoint_dir</code> in <code>./alg/eval_multi_alf.py</code> to point to your trained checkpoints.</li>
-            <li>Set the configuration and base model in <code>./config/eval_multi_rl.json</code>.</li>
-          </ul>
-          <pre class="codeblock"><code>python eval_multi_alf.py</code></pre>
 
         </div>
       </details>
@@ -830,8 +808,7 @@ low_path = "/path/to/your/system2_warmup_checkpoint"</code></pre>
         Tip: you can link directly to this section using <code>#how-to-run</code>.
       </p>
     </section>
-
-  </div>
+</div>
 
   <!-- Image modal -->
   <div class="img-modal" id="imgModal" role="dialog" aria-modal="true" aria-label="Enlarged image view">
