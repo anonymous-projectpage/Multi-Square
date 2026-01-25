@@ -540,6 +540,24 @@
     @media (max-width: 900px){
       .key-grid{ grid-template-columns: 1fr; }
     }
+
+    /* FINAL OVERRIDES (force matte to near-white + gradient blend) */
+    #framework .figure{
+      padding: 18px !important; /* make the matte clearly visible */
+      border-radius: 20px !important;
+      background: linear-gradient(180deg,
+        rgba(255,255,255,.26) 0%,
+        rgba(255,255,255,.16) 55%,
+        rgba(255,255,255,.08) 100%) !important;
+      border: 1px solid rgba(255,255,255,.22) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 14px 50px rgba(0,0,0,.30) !important;
+    }
+    #framework .figure img{
+      border-radius: 14px !important;
+      border: 1px solid rgba(0,0,0,.10) !important; /* keep edge readable on light matte */
+      box-shadow: 0 10px 28px rgba(0,0,0,.26) !important;
+      background: #fff !important;
+    }
 </style>
 </head>
 
@@ -603,12 +621,12 @@
 
     <!-- Teaser (GIF) -->
     <section class="section" id="teaser" style="margin-top: 22px;">
-      <!-- <h2 class="section-title">Teaser</h2> -->
+      <h2 class="section-title">Teaser</h2>
       <figure class="figure">
         <!-- TODO: Put your GIF at assets/teaser.gif (or change the src) -->
-        <img class="zoomable" src="Figure/framework.gif" alt="Teaser animation for Multi²" loading="lazy" />
+        <img class="zoomable" src="assets/teaser.gif" alt="Teaser animation for Multi²" loading="lazy" />
         <figcaption class="caption">
-          <!-- Teaser: Core idea of Multi² in a nutshell. (Click to enlarge) -->
+          Teaser: Core idea of Multi² in a nutshell. (Click to enlarge)
         </figcaption>
       </figure>
       <p class="hint">
