@@ -171,10 +171,21 @@
     /* Let the figure area scroll if the image/caption exceed the shared height */
     #framework .figure{
       flex: 1 1 auto;
-      overflow: auto;
+      overflow: hidden;            /* no scrollbars; keep the full figure visible */
+      display: flex;
+      flex-direction: column;
+      justify-content: center;     /* center figure content vertically */
     }
 
-    /* On small screens, stack and use natural height */
+    /* Fit the framework image within the shared card height */
+    #framework .figure img{
+      width: 100%;
+      height: auto;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+/* On small screens, stack and use natural height */
     @media (max-width: 900px){
       .content-grid{ --pair-h: auto; }
       .content-grid > #abstract.section,
@@ -587,7 +598,25 @@ Across diverse interactive environments, <code>Multi</code><sup>2</sup> consiste
     </div>
 
 
-    <!-- Benchmarks -->
+    
+      <!-- Framework Execution / How It Works Figure -->
+      <section class="section" id="how-it-works" style="margin-top: 22px;">
+        <h2 class="section-title">How It Works</h2>
+
+        <figure class="figure">
+          <!-- TODO: Put your diagram at Figure/how_it_works.png (or change the src) -->
+          <img class="zoomable" src="Figure/how_it_works.png" alt="Multi² framework execution flow" loading="lazy" />
+          <figcaption class="caption">
+            Multi² execution flow: how System 1 (high-level) and System 2 (low-level) coordinate at inference time. (Click to enlarge)
+          </figcaption>
+        </figure>
+
+        <p class="hint">
+          Put your diagram at <code>Figure/how_it_works.png</code>, or change the <code>src</code> above.
+        </p>
+      </section>
+
+<!-- Benchmarks -->
     <section class="section" id="benchmarks" style="margin-top: 22px;">
       <h2 class="section-title">Benchmarks</h2>
       <p class="section-text" style="margin-bottom: 12px;">
