@@ -854,7 +854,24 @@ Across diverse interactive environments, <strong><code>Multi</code></strong><sup
     </section>
 
     
-    <!-- How to Run / Reproducibility -->
+    
+    <!-- Results / Case Study -->
+    <section class="section" id="results" style="margin-top: 22px;">
+      <h2 class="section-title">Results</h2>
+      <p class="section-text" style="margin-bottom: 12px;">
+        Case study: Multi² maintains goal-consistent behavior over long-horizon interaction and improves robustness compared to strong agentic baselines.
+      </p>
+
+      <figure class="figure">
+        <!-- Put your figure at Figure/result.png (or change the src) -->
+        <img class="zoomable" src="Figure/result.png" alt="Case study results" loading="lazy" />
+        <figcaption class="caption">
+          Figure: Case study results in interactive environments. (Click to enlarge)
+        </figcaption>
+      </figure>
+    </section>
+
+<!-- How to Run / Reproducibility -->
     <section class="section" id="how-to-run" style="margin-top: 22px;">
       <h2 class="section-title">How to Run</h2>
 
@@ -1019,21 +1036,36 @@ low_path = "/path/to/your/system2_warmup_checkpoint"</code></pre>
       if(!imgs.length || !modal || !modalImg || !closeBtn) return;
 
       function openModal(img){
-        modalImg.src = img.src;
+        // Use currentSrc first (covers responsive images), then the raw attribute, then resolved src
+        const src = img.currentSrc || img.getAttribute('src') || img.src;
+        if(src) modalImg.src = src;
+
         modalImg.alt = img.alt || 'Figure';
         modal.classList.add('open');
         closeBtn.focus();
         document.body.style.overflow = 'hidden';
+
+        // If the image fails to load, show a small hint instead of a broken icon
+        modalImg.onerror = () => {
+          modalImg.removeAttribute('src');
+          modalImg.alt = 'Image failed to load (check the file path).';
+        };
       }
 
       function closeModal(){
         modal.classList.remove('open');
         modalImg.removeAttribute('src');
+        modalImg.alt = '';
+        modalImg.onerror = null;
         document.body.style.overflow = '';
       }
 
       imgs.forEach((img) => {
-        img.addEventListener('click', () => openModal(img));
+        img.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openModal(img);
+        });
       });
 
       closeBtn.addEventListener('click', closeModal);
