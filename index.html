@@ -163,12 +163,18 @@
     }
 
     /* Let the Abstract text scroll if it exceeds the shared height */
-    #abstract .section-text{
-      overflow: auto;
-      padding-right: 6px; /* room for scrollbar */
+    #abstract{
+      position: relative;
     }
 
-    /* Let the figure area scroll if the image/caption exceed the shared height */
+    /* Remove the scrollbar and use a subtle fade-out for overflow */
+    #abstract .section-text{
+      overflow: hidden;
+      padding-right: 0;
+      -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
+      mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
+    }
+/* Let the figure area scroll if the image/caption exceed the shared height */
     #framework .figure{
       flex: 1 1 auto;
       overflow: hidden;            /* no scrollbars; keep the full figure visible */
@@ -250,7 +256,7 @@
       background: rgba(255,255,255,.03);
     }
 
-    #framework .figure{ overflow:auto; }
+    #framework .figure{ overflow: hidden; }
 
     .figure img{
       width: 100%;
@@ -491,7 +497,22 @@
       outline-offset: 2px;
     }
 
-  </style>
+  
+    /* Final overrides: keep figures fully visible (no inner scrollbars) */
+    #framework{
+      overflow: hidden;
+    }
+    #framework .figure{
+      overflow: hidden !important;
+    }
+
+    /* Make the training figure feel less "boxed" */
+    #framework .figure img{
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.02);
+    }
+</style>
 </head>
 
 <body>
