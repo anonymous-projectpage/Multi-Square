@@ -150,7 +150,85 @@
       display: grid;
       gap: 22px;
       grid-template-columns: 0.75fr 1.25fr; /* wider framework column */
-      align-items: start;
+      align-items: stretch; /* make both cards take the same row height */
+      --pair-h: clamp(420px, 62vh, 760px); /* shared height for Abstract + Framework on desktop */
+    }
+
+    /* Make Abstract and Framework the same height (desktop) */
+    .content-grid > #abstract.section,
+    .content-grid > #framework.section{
+      height: var(--pair-h);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Let the Abstract text scroll if it exceeds the shared height */
+    #abstract .section-text{
+      overflow: auto;
+      padding-right: 6px; /* room for scrollbar */
+    }
+
+    /* Let the figure area scroll if the image/caption exceed the shared height */
+    #framework .figure{
+      flex: 1 1 auto;
+      overflow: auto;
+    }
+
+    /* On small screens, stack and use natural height */
+    @media (max-width: 900px){
+      .content-grid{ --pair-h: auto; }
+      .content-grid > #abstract.section,
+      .content-grid > #framework.section{
+        height: auto;
+      }
+      #abstract .section-text{ overflow: visible; }
+      #framework .figure{ overflow: visible; }
+    }
+
+    /* Scrollbar styling to match the dark UI (WebKit + Firefox) */
+    #abstract .section-text,
+    #framework .figure{
+      scrollbar-width: thin;                 /* Firefox */
+      scrollbar-color: rgba(255,255,255,.18) rgba(255,255,255,.06);
+    }
+
+    #abstract .section-text::-webkit-scrollbar,
+    #framework .figure::-webkit-scrollbar{
+      width: 10px;
+      height: 10px;
+    }
+
+    #abstract .section-text::-webkit-scrollbar-track,
+    #framework .figure::-webkit-scrollbar-track{
+      background: rgba(255,255,255,.06);
+      border-radius: 999px;
+      margin: 8px;                           /* creates breathing room */
+    }
+
+    #abstract .section-text::-webkit-scrollbar-thumb,
+    #framework .figure::-webkit-scrollbar-thumb{
+      background: linear-gradient(
+        180deg,
+        rgba(255,255,255,.22),
+        rgba(255,255,255,.12)
+      );
+      border-radius: 999px;
+      border: 2px solid rgba(10,12,18,.35);  /* blends with card background */
+      background-clip: padding-box;
+    }
+
+    #abstract .section-text::-webkit-scrollbar-thumb:hover,
+    #framework .figure::-webkit-scrollbar-thumb:hover{
+      background: linear-gradient(
+        180deg,
+        rgba(255,255,255,.30),
+        rgba(255,255,255,.16)
+      );
+    }
+
+    #abstract .section-text::-webkit-scrollbar-corner,
+    #framework .figure::-webkit-scrollbar-corner{
+      background: transparent;
     }
 
     .figure{
