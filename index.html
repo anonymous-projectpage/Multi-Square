@@ -233,7 +233,8 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 14px 50px rgba(0,0,0,.32);
       }
     #framework .figure img,
-    #results .figure img{
+    #results .figure img,
+    #teaser .figure img{
       background: #ffffff;                 /* keep paper white inside the matte */
       border-radius: 14px;
       border: 1px solid rgba(0,0,0,.10);
@@ -470,13 +471,15 @@
       overflow: hidden;
     }
     #framework .figure,
-    #results .figure{
+    #results .figure,
+    #teaser .figure{
       overflow: hidden !important;
     }
 
     /* Make the training figure feel less "boxed" */
     #framework .figure img,
-    #results .figure img{
+    #results .figure img,
+    #teaser .figure img{
       border-radius: 12px;
       border: 1px solid rgba(0,0,0,.10);
       background: rgba(255,255,255,.02);
@@ -489,13 +492,15 @@
 
     /* Ensure figures never create inner scrollbars */
     #framework .figure,
-    #results .figure{
+    #results .figure,
+    #teaser .figure{
       overflow: hidden !important;
     }
 
     /* Make images fit their container cleanly */
     #framework .figure img,
-    #results .figure img{
+    #results .figure img,
+    #teaser .figure img{
       display: block;
       width: 100%;
       height: auto;
@@ -557,7 +562,8 @@
 
     /* FINAL OVERRIDES (force matte to near-white + gradient blend) */
     #framework .figure,
-    #results .figure{
+    #results .figure,
+    #teaser .figure{
       padding: 18px !important; /* make the matte clearly visible */
       border-radius: 20px !important;
       background: linear-gradient(180deg,
@@ -568,12 +574,26 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 14px 50px rgba(0,0,0,.30) !important;
     }
     #framework .figure img,
-    #results .figure img{
+    #results .figure img,
+    #teaser .figure img{
       border-radius: 14px !important;
       border: 1px solid rgba(0,0,0,.10) !important; /* keep edge readable on light matte */
       box-shadow: 0 10px 28px rgba(0,0,0,.26) !important;
       background: #fff !important;
     }
+
+
+    /* Teaser sizing: slightly smaller and centered */
+    #teaser .figure{
+      max-width: 980px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    #teaser .figure img{
+      max-height: 560px;
+      object-fit: contain;
+    }
+
 </style>
 </head>
 
@@ -640,7 +660,7 @@
       <h2 class="section-title">Teaser</h2>
       <figure class="figure">
         <!-- TODO: Put your GIF at assets/teaser.gif (or change the src) -->
-        <img class="zoomable" src="Figure/framework.gif" alt="Framework for Multi²" loading="lazy" />
+        <img id="teaserGif" class="zoomable" src="Figure/framework.gif" alt="Framework for Multi²" loading="eager" decoding="async" />
         <figcaption class="caption">
           GIF: Core idea of Multi². (Click to enlarge)
         </figcaption>
@@ -1127,6 +1147,14 @@ low_path = "/path/to/your/system2_warmup_checkpoint"</code></pre>
       window.addEventListener('keydown', (e) => {
         if(e.key === 'Escape' && modal.classList.contains('open')) closeModal();
       });
+
+      // Ensure the teaser GIF starts from the beginning on each page load (avoid lazy-start/stall)
+      const teaserGif = document.getElementById('teaserGif');
+      if(teaserGif){
+        const base = (teaserGif.getAttribute('src') || '').split('?')[0];
+        if(base) teaserGif.src = base + '?v=' + Date.now();
+      }
+
     })();
   </script>
 
