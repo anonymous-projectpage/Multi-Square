@@ -582,16 +582,109 @@
       background: #fff !important;
     }
 
+    /* Smooth anchor scroll */
+    html{ scroll-behavior: smooth; }
 
-    /* Teaser sizing: slightly smaller and centered */
-    #teaser .figure{
-      max-width: 980px;
-      margin-left: auto;
-      margin-right: auto;
+    /* Teaser: 2-column layout (GIF + quick links) */
+    .teaser-grid{
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 18px;
+      align-items: start;
+      margin-top: 12px;
     }
-    #teaser .figure img{
-      max-height: 560px;
-      object-fit: contain;
+    .teaser-side{
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 0;
+    }
+    .teaser-side-title{
+      margin: 0;
+      font-size: 14px;
+      font-weight: 760;
+      letter-spacing: -0.01em;
+      color: rgba(255,255,255,.86);
+    }
+    .teaser-side-sub{
+      margin: -6px 0 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .teaser-link{
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.04);
+      text-decoration: none;
+      color: var(--text);
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+      min-width: 0;
+    }
+    .teaser-link:hover{
+      transform: translateY(-1px);
+      background: rgba(255,255,255,.07);
+      border-color: rgba(255,255,255,.22);
+    }
+    .teaser-thumb{
+      width: 96px;
+      height: 64px;
+      flex: 0 0 auto;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 1px solid rgba(0,0,0,.10);
+      background: #fff;
+      box-shadow: 0 10px 28px rgba(0,0,0,.18);
+    }
+    .teaser-link-body{
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .teaser-link-title{
+      margin: 0;
+      font-size: 14.5px;
+      font-weight: 780;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+    }
+    .teaser-link-desc{
+      margin: 0;
+      color: var(--muted);
+      font-size: 12.8px;
+      line-height: 1.45;
+    }
+    .teaser-link-cta{
+      margin-top: 2px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: rgba(255,255,255,.82);
+      opacity: .9;
+    }
+
+    /* Teaser figure sizing inside the grid */
+    #teaser .figure{
+      max-width: 860px;
+      margin: 0;
+    }
+    #teaser .caption{ margin-top: 10px; }
+
+    /* Responsive: stack teaser */
+    @media (max-width: 980px){
+      .teaser-grid{ grid-template-columns: 1fr; }
+      #teaser .figure{ margin-left: auto; margin-right: auto; }
+    }
+
+    /* Optional: brief highlight when jumping to a section */
+    .section:target{
+      outline: 3px solid rgba(96,165,250,.32);
+      outline-offset: 2px;
+      box-shadow: 0 0 0 6px rgba(96,165,250,.08);
     }
 
 </style>
@@ -656,22 +749,58 @@
 
 
     <!-- Teaser (GIF) -->
-    <section class="section" id="teaser" style="margin-top: 22px;">
-      <h2 class="section-title">Teaser</h2>
-      <figure class="figure">
-        <!-- TODO: Put your GIF at assets/teaser.gif (or change the src) -->
-        <img id="teaserGif" class="zoomable" src="Figure/framework.gif" alt="Framework for Multi²" loading="eager" decoding="async" />
-        <figcaption class="caption">
-          GIF: Core idea of Multi². (Click to enlarge)
-        </figcaption>
-      </figure>
-      <!-- <p class="hint">
-        Put your GIF at <code>assets/teaser.gif</code> (recommended), or change the <code>src</code>.
-      </p> -->
-    </section>
+<section class="section" id="teaser" style="margin-top: 22px;">
+  <h2 class="section-title">Teaser</h2>
 
+  <div class="teaser-grid">
+    <figure class="figure">
+      <img id="teaserGif" class="zoomable" src="Figure/framework.gif" alt="Framework for Multi²" loading="eager" decoding="async" />
+      <figcaption class="caption">
+        GIF: Core idea of Multi². (Click to enlarge)
+      </figcaption>
+    </figure>
 
-    <div class="content-grid">
+    <aside class="teaser-side" aria-label="Quick links">
+      <h3 class="teaser-side-title">See more</h3>
+      <p class="teaser-side-sub">Jump to key sections (or click the GIF to enlarge).</p>
+
+      <a class="teaser-link" href="#framework" aria-label="Jump to Framework section">
+        <img class="teaser-thumb" src="Figure/framework.png" alt="Framework diagram thumbnail" loading="lazy" decoding="async" />
+        <div class="teaser-link-body">
+          <p class="teaser-link-title">Framework diagram</p>
+          <p class="teaser-link-desc">Hierarchical roles, call structure, and training pipeline.</p>
+          <div class="teaser-link-cta">Go to Framework →</div>
+        </div>
+      </a>
+
+      <a class="teaser-link" href="#results" aria-label="Jump to Results section">
+        <img class="teaser-thumb" src="Figure/result.png" alt="Results figure thumbnail" loading="lazy" decoding="async" />
+        <div class="teaser-link-body">
+          <p class="teaser-link-title">Results</p>
+          <p class="teaser-link-desc">Case study results; robustness and long-horizon consistency.</p>
+          <div class="teaser-link-cta">Go to Results →</div>
+        </div>
+      </a>
+
+      <a class="teaser-link" href="#how-to-run" aria-label="Jump to How to Run section">
+        <div class="icon" aria-hidden="true" style="width:96px;height:64px;border-radius:12px;justify-content:center;align-items:center;display:flex;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 18 3 12l6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M15 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M14 4 10 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="teaser-link-body">
+          <p class="teaser-link-title">How to run</p>
+          <p class="teaser-link-desc">Setup, environment, and training commands for reproducibility.</p>
+          <div class="teaser-link-cta">Go to How to Run →</div>
+        </div>
+      </a>
+
+    </aside>
+  </div>
+</section>
+<div class="content-grid">
       <!-- Abstract -->
       <section class="section" id="abstract">
         <h2 class="section-title">Abstract</h2>
