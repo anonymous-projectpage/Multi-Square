@@ -687,6 +687,19 @@
       box-shadow: 0 0 0 6px rgba(96,165,250,.08);
     }
 
+
+    /* Results: additional figures grid */
+    .results-grid{
+      margin-top: 16px;
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
+    }
+    @media (max-width: 900px){
+      .results-grid{ grid-template-columns: 1fr; }
+    }
+
 </style>
 </head>
 
@@ -1068,6 +1081,24 @@ Across diverse interactive environments, <strong><code>Multi</code></strong><sup
           Figure: Case study results in interactive environments. (Click to enlarge)
         </figcaption>
       </figure>
+
+      <div class="results-grid" aria-label="Additional results figures">
+        <figure class="figure">
+          <!-- TODO: Put your figure at Figure/result_token_efficiency.png (or change the src) -->
+          <img class="zoomable" src="Figure/result_token_efficiency.png" alt="Token Efficiency" loading="lazy" />
+          <figcaption class="caption">
+            Figure: Token Efficiency. (Click to enlarge)
+          </figcaption>
+        </figure>
+
+        <figure class="figure">
+          <!-- TODO: Put your figure at Figure/result_horizon_robustness.png (or change the src) -->
+          <img class="zoomable" src="Figure/result_horizon_robustness.png" alt="Horizon Robustness" loading="lazy" />
+          <figcaption class="caption">
+            Figure: Horizon Robustness. (Click to enlarge)
+          </figcaption>
+        </figure>
+      </div>
     </section>
 
 <!-- How to Run / Reproducibility -->
