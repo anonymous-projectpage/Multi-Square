@@ -88,23 +88,23 @@ python train_multi_rl_warmup.py
 
   - **ScienceWorld**
     ```python
-    from alg.multi_rl_sys2_advantage import Multi2
+    from alg.multi_rl_sys2_scienceworld import Multi2
     ```
 
   - **ALFWorld**
     ```python
-    from alg.multi_rl_sys2_advantage_alfworld import Multi2
+    from alg.multi_rl_sys2_alfworld import Multi2
     ```
 
   - **TextCraft**
     ```python
-    from alg.multi_rl_sys2_advantage_textcraft import Multi2
+    from alg.multi_rl_sys2_textcraft import Multi2
     ```
 - Set the trained policy roots in the corresponding algorithm file under `./alg/` <br>
 (You must manually specify the paths to the trained System 1 model and the System 2 warmup model.) <br>
 Example:
 ```python
-# e.g., ./alg/multi_rl_sys2_advantage*.py
+# e.g., ./alg/multi_rl_sys2_*.py
 
 # Path to the trained System 1 (SFT) checkpoint
 high_path = "/path/to/your/system1_sft_checkpoint"
@@ -120,17 +120,6 @@ python train_multi_rl.py
 
 
 ### Evaluation - ScienceWorld
-- Divide Seen and Unseen test dataset
-```
-python collect_test_data.py --split dev
-python collect_test_data.py --split test
-```
-- Add is_seen Flag for comparison with train dataset and test environment
-```
-python add_is_seen.py --split dev
-python add_is_seen.py --split test
-```
-
 - Set **self.high_checkpoint_dir** and **self.low_checkpoint_dir** (the model path) in ```./alg/eval_multi_sci.py``` (to point to the trained model)
 - Set the configuration and base model in ```./config/eval_multi_rl.json```.
 - Then run the evaluation
