@@ -593,6 +593,26 @@
       align-items: start;
       margin-top: 12px;
     }
+
+    /* Results: side-by-side figures for Token Efficiency / Horizon Robustness */
+    .results-grid{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      align-items: start;
+      margin-top: 18px;
+    }
+    .results-grid .figure{ margin: 0; }
+    .results-item .section-text{
+      margin-top: 0;
+      margin-bottom: 12px;
+    }
+    @media (max-width: 980px){
+      .results-grid{
+        grid-template-columns: 1fr;
+      }
+    }
+
     .teaser-side{
       display: flex;
       flex-direction: column;
@@ -1069,27 +1089,35 @@ Across diverse interactive environments, <strong><code>Multi</code></strong><sup
         </figcaption>
       </figure>
 
-      <p class="section-text" style="margin-top: 18px; margin-bottom: 12px;">
-        Token Efficiency: Multi² achieves stronger performance per generated token, reducing inference cost while maintaining goal-consistent behavior.
-      </p>
+      
+      <div class="results-grid">
+        <div class="results-item">
+          <p class="section-text">
+            <strong>Token Efficiency.</strong> Multi² achieves stronger performance per generated token, reducing inference cost while maintaining goal-consistent behavior.
+          </p>
 
-      <figure class="figure">
-        <img class="zoomable" src="Figure/result_token_efficiency.png" alt="Token Efficiency" loading="lazy" />
-        <figcaption class="caption">
-          Figure: Token Efficiency. (Click to enlarge)
-        </figcaption>
-      </figure>
+          <figure class="figure">
+            <img class="zoomable" src="Figure/result_token_efficiency.png" alt="Token Efficiency" loading="lazy" />
+            <figcaption class="caption">
+              Figure: Token Efficiency. (Click to enlarge)
+            </figcaption>
+          </figure>
+        </div>
 
-      <p class="section-text" style="margin-top: 18px; margin-bottom: 12px;">
-        Horizon Robustness: Multi² remains robust as task horizons grow, sustaining high success rates over longer interaction sequences compared to strong baselines.
-      </p>
+        <div class="results-item">
+          <p class="section-text">
+            <strong>Horizon Robustness.</strong> Multi² remains robust as task horizons grow, sustaining high success rates over longer interaction sequences compared to strong baselines.
+          </p>
 
-      <figure class="figure">
-        <img class="zoomable" src="Figure/result_horizon_robustness.png" alt="Horizon Robustness" loading="lazy" />
-        <figcaption class="caption">
-          Figure: Horizon Robustness. (Click to enlarge)
-        </figcaption>
-      </figure>
+          <figure class="figure">
+            <img class="zoomable" src="Figure/result_horizon_robustness.png" alt="Horizon Robustness" loading="lazy" />
+            <figcaption class="caption">
+              Figure: Horizon Robustness. (Click to enlarge)
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+
 
     </section>
 
