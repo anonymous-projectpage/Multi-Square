@@ -1,5 +1,5 @@
 # Multi<sup>2</sup> LLM
-Multi<sup>2</sup>: A Multi-agent LLM Framework for Hierarchical Multi-turn Decision-making with Offline Reinforcement Learning
+Multi<sup>2</sup>: Hierarchical Multi-Agent Decision-Making with LLM-Based Agents in Interactive Environments
 
 ### Anaconda Installation
 1. Install prerequisites (before installing Anaconda)
