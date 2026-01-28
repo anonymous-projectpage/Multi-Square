@@ -16,16 +16,29 @@ bash ~/Downloads/Anaconda3-2020.07-Linux-x86_64.sh
 ```
 ### Environment Setup
 1. Benchmark dependencies
-Follow the instructions in the [ScienceWorld](https://github.com/allenai/ScienceWorld) and [AlfWorld](https://github.com/alfworld) to install the required environments.
+Follow the instructions in the (1) [ScienceWorld](https://github.com/allenai/ScienceWorld), (2) [ALFWorld](https://github.com/alfworld), and (3)[TextCraft](https://github.com/archiki/ADaPT) to install the required environments.
 2. Clone this repository
 ```
 git clone https://github.com/park-sangeun/Multi-2-LLM-Agent.git
 ```
 3. Create and activate a virtual environment
+- Training and ScienceWorld Evaluation
 ```
-conda create -n Multi python=3.10 -y
-conda activate Multi
-pip install -r requirements.txt
+conda create -n Multi_Train_ScienceWorld python=3.10 -y
+conda activate Multi_Train_ScienceWorld
+pip install -r requirements_train+scienceworld.txt
+```
+- ALFWorld Evaluation
+```
+conda create -n Multi_ALFWorld python=3.10 -y
+conda activate Multi_ALFWorld
+pip install -r requirements_alfworld.txt
+```
+- TextCraft Evaluation
+```
+conda create -n Multi_TextCraft python=3.10 -y
+conda activate Multi_TextCraft
+pip install -r requirements_textcraft.txt
 ```
 
 ### Model Training
