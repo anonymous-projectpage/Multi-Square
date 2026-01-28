@@ -19,7 +19,7 @@ bash ~/Downloads/Anaconda3-2020.07-Linux-x86_64.sh
 Follow the instructions in the (1) [ScienceWorld](https://github.com/allenai/ScienceWorld), (2) [ALFWorld](https://github.com/alfworld), and (3)[TextCraft](https://github.com/archiki/ADaPT) to install the required environments.
 2. Clone this repository
 ```
-git clone https://github.com/park-sangeun/Multi-2-LLM-Agent.git
+git clone https://github.com/anonymous-projectpage/Multi-Square.git
 ```
 3. Create and activate a virtual environment
 - Training and ScienceWorld Evaluation
