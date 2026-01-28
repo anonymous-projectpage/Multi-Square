@@ -133,20 +133,23 @@ python train_multi_rl.py
 
 
 ### Evaluation - ScienceWorld
-- Set **self.high_checkpoint_dir** and **self.low_checkpoint_dir** (the model path) in ```./alg/eval_multi_sci.py``` (to point to the trained model)
+- Set **high_path** and **low_path** (the model path) in ```./alg/eval_multi_sci.py``` (to point to the trained model)
 - Set the configuration and base model in ```./config/eval_multi_rl.json```.
 - Then run the evaluation
 ```
-python eval_multi.py
-```
-- If using deepspeed,
-```
-python eval_multi_deepspeed.py
+python eval_multi_scienceworld.py
 ```
 
-### Evaluation - AlfWorld
-- Set **self.high_checkpoint_dir** and **self.low_checkpoint_dir** (the model path) in ```./alg/eval_multi_alf.py``` (to point to the trained model)
+### Evaluation - ALFWorld
+- Set **high_path** and **self.low_path** (the model path) in ```./alg/eval_multi_alf.py``` (to point to the trained model)
 - Set the configuration and base model in ```./config/eval_multi_rl.json```.
 ```
-python eval_multi_alf.py
+python eval_multi_alfworld.py
+```
+
+### Evaluation - TextCraft
+- Set **high_path** and **low_path** (the model path) in ```./alg/eval_multi_textcraft.py``` (to point to the trained model)
+- Set the configuration and base model in ```./config/eval_multi_rl.json```.
+```
+python eval_multi_textcraft.py
 ```
