@@ -613,36 +613,24 @@
       }
     }
 
-        .teaser-side{
+    .teaser-side{
       display: flex;
       flex-direction: column;
       gap: 12px;
       min-width: 0;
-      padding: 14px;
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,.16);
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
-      position: relative;
-    }
-    .teaser-side:before{
-      content: "";
-      position: absolute;
-      left: 12px;
-      right: 12px;
-      top: 10px;
-      height: 2px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(94,234,212,.55), rgba(96,165,250,.55), rgba(167,139,250,.55));
-      opacity: .85;
-      pointer-events: none;
     }
     .teaser-side-title{
-      margin: 8px 0 0; /* leave room for the accent bar */
-      font-size: 15.5px;
-      font-weight: 820;
-      letter-spacing: -0.012em;
-      color: rgba(255,255,255,.92);
+      margin: 0;
+      font-size: 14px;
+      font-weight: 760;
+      letter-spacing: -0.01em;
+      color: rgba(255,255,255,.86);
+    }
+    .teaser-side-sub{
+      margin: -6px 0 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--muted);
     }
 
     .teaser-link{
@@ -650,36 +638,17 @@
       gap: 12px;
       padding: 12px;
       border-radius: 16px;
-      border: 1px solid rgba(255,255,255,.16);
-      background: rgba(255,255,255,.045);
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.04);
       text-decoration: none;
       color: var(--text);
-      transition: transform .12s ease, background .12s ease, border-color .12s ease, box-shadow .12s ease;
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
       min-width: 0;
-      position: relative;
-      overflow: hidden;
     }
-    .teaser-link:before{
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 10px;
-      bottom: 10px;
-      width: 3px;
-      border-radius: 999px;
-      background: rgba(96,165,250,.55);
-      opacity: .8;
-    }
-
     .teaser-link:hover{
       transform: translateY(-1px);
-      background: rgba(255,255,255,.075);
-      border-color: rgba(255,255,255,.26);
-      box-shadow: 0 10px 26px rgba(0,0,0,.22);
-    }
-    .teaser-link:focus-visible{
-      outline: 3px solid rgba(96,165,250,.55);
-      outline-offset: 2px;
+      background: rgba(255,255,255,.07);
+      border-color: rgba(255,255,255,.22);
     }
     .teaser-thumb{
       width: 96px;
@@ -736,6 +705,18 @@
       outline: 3px solid rgba(96,165,250,.32);
       outline-offset: 2px;
       box-shadow: 0 0 0 6px rgba(96,165,250,.08);
+    }
+
+
+    /* Make links in collapsible details readable on dark background */
+    .details-body a{
+      color: rgba(255,255,255,.92);
+      text-decoration-color: rgba(255,255,255,.35);
+    }
+    .details-body a:hover{
+      color: rgba(255,255,255,1);
+      text-decoration: underline;
+      text-decoration-color: rgba(255,255,255,.55);
     }
 
 </style>
@@ -813,20 +794,7 @@
 
     <aside class="teaser-side" aria-label="Quick links">
       <h3 class="teaser-side-title">See more</h3>
-<a class="teaser-link" href="#abstract" aria-label="Jump to Abstract section">
-        <div class="icon" aria-hidden="true" style="width:96px;height:64px;border-radius:12px;justify-content:center;align-items:center;display:flex;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M8 3h6l4 4v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" />
-            <path d="M14 3v5h5" stroke="currentColor" stroke-width="1.8"/>
-            <path d="M9 13h6M9 17h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="teaser-link-body">
-          <p class="teaser-link-title">Abstract</p>
-          <p class="teaser-link-desc">One-paragraph overview of the paper.</p>
-          <div class="teaser-link-cta">Go to Abstract →</div>
-        </div>
-      </a>
+      <p class="teaser-side-sub">Jump to key sections (or click the GIF to enlarge).</p>
 
       <a class="teaser-link" href="#framework" aria-label="Jump to Framework section">
         <img class="teaser-thumb" src="Figure/framework.png" alt="Framework diagram thumbnail" loading="lazy" decoding="async" />
@@ -1300,6 +1268,43 @@ low_path = "/path/to/your/system2_warmup_checkpoint"</code></pre>
 
           <p class="section-text">Run:</p>
           <pre class="codeblock"><code>python train_multi_rl.py</code></pre>
+
+        </div>
+      </details>
+
+
+      <!-- Evaluation -->
+      <details class="details">
+        <summary>Evaluation</summary>
+        <div class="details-body">
+
+          <p class="section-text" style="margin-top: 0;">
+            Use the same <code>./config/eval_multi_rl.json</code> for evaluation, and set the model checkpoint paths in the corresponding evaluator.
+          </p>
+
+          <h3 class="details-title">ScienceWorld</h3>
+          <p class="section-text" style="margin-top: 0;">
+            1) Activate the <code>Multi_Train_ScienceWorld</code> environment.<br />
+            2) Set <code>high_path</code> and <code>low_path</code> in <code>./alg/eval_multi_sci.py</code> to your trained checkpoints.<br />
+            3) Run:
+          </p>
+          <pre class="codeblock"><code>python eval_multi_scienceworld.py</code></pre>
+
+          <h3 class="details-title">ALFWorld</h3>
+          <p class="section-text" style="margin-top: 0;">
+            1) Activate the <code>Multi_ALFWorld</code> environment.<br />
+            2) Set <code>high_path</code> and <code>self.low_path</code> in <code>./alg/eval_multi_alf.py</code>.<br />
+            3) Run:
+          </p>
+          <pre class="codeblock"><code>python eval_multi_alfworld.py</code></pre>
+
+          <h3 class="details-title">TextCraft</h3>
+          <p class="section-text" style="margin-top: 0;">
+            1) Activate the <code>Multi_TextCraft</code> environment.<br />
+            2) Set <code>high_path</code> and <code>low_path</code> in <code>./alg/eval_multi_textcraft.py</code>.<br />
+            3) Run:
+          </p>
+          <pre class="codeblock"><code>python eval_multi_textcraft.py</code></pre>
 
         </div>
       </details>
