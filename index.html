@@ -1249,17 +1249,34 @@ bash ~/Downloads/Anaconda3-2020.07-Linux-x86_64.sh</code></pre>
           <p class="section-text" style="margin-top: 0;">
             Follow the official instructions to install each benchmark environment:
             <a href="https://github.com/allenai/ScienceWorld" target="_blank" rel="noopener noreferrer">ScienceWorld</a>,
-            <a href="https://github.com/alfworld" target="_blank" rel="noopener noreferrer">ALFWorld</a>.
+            <a href="https://github.com/alfworld" target="_blank" rel="noopener noreferrer">ALFWorld</a>, and
+            <a href="https://github.com/archiki/ADaPT" target="_blank" rel="noopener noreferrer">TextCraft</a>.
           </p>
 
           <h3 class="details-title">Clone this repository</h3>
           <pre class="codeblock"><code>git clone https://github.com/park-sangeun/Multi-2-LLM-Agent.git
 cd Multi-2-LLM-Agent</code></pre>
 
-          <h3 class="details-title">Create and activate a virtual environment</h3>
-          <pre class="codeblock"><code>conda create -n Multi python=3.10 -y
-conda activate Multi
-pip install -r requirements.txt</code></pre>
+          <h3 class="details-title">Create and activate benchmark-specific environments</h3>
+
+          <p class="section-text" style="margin-top: 0;">
+            We use separate conda environments for training/ScienceWorld evaluation vs. ALFWorld evaluation vs. TextCraft evaluation.
+          </p>
+
+          <h3 class="details-title">Training + ScienceWorld evaluation</h3>
+          <pre class="codeblock"><code>conda create -n Multi_Train_ScienceWorld python=3.10 -y
+conda activate Multi_Train_ScienceWorld
+pip install -r requirements_train+scienceworld.txt</code></pre>
+
+          <h3 class="details-title">ALFWorld evaluation</h3>
+          <pre class="codeblock"><code>conda create -n Multi_ALFWorld python=3.10 -y
+conda activate Multi_ALFWorld
+pip install -r requirements_alfworld.txt</code></pre>
+
+          <h3 class="details-title">TextCraft evaluation</h3>
+          <pre class="codeblock"><code>conda create -n Multi_TextCraft python=3.10 -y
+conda activate Multi_TextCraft
+pip install -r requirements_textcraft.txt</code></pre>
 
         </div>
       </details>
@@ -1323,19 +1340,19 @@ pip install -r requirements.txt</code></pre>
             Depending on the benchmark, change the import in <code>./train_multi_rl.py</code>:
           </p>
           <pre class="codeblock"><code># ScienceWorld
-from alg.multi_rl_sys2_advantage import Multi2
+from alg.multi_rl_sys2_scienceworld import Multi2
 
 # ALFWorld
-from alg.multi_rl_sys2_advantage_alfworld import Multi2
+from alg.multi_rl_sys2_alfworld import Multi2
 
 # TextCraft
-from alg.multi_rl_sys2_advantage_textcraft import Multi2</code></pre>
+from alg.multi_rl_sys2_textcraft import Multi2</code></pre>
 
           <p class="section-text">
             Set the trained policy roots in the corresponding algorithm file under <code>./alg/</code>
             (manually specify paths to the trained System 1 model and the System 2 structure-formatting model). Example:
           </p>
-          <pre class="codeblock"><code># e.g., ./alg/multi_rl_sys2_advantage*.py
+          <pre class="codeblock"><code># e.g., ./alg/multi_rl_sys2_*.py
 
 # Path to the trained System 1 (SFT) checkpoint
 high_path = "/path/to/your/system1_sft_checkpoint"
