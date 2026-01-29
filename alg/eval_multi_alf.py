@@ -200,14 +200,7 @@ class EvalAgent:
         env_cls = get_environment(self.config["env"]["type"])
         self.eval_env = env_cls(self.config, train_eval=split)
         self.eval_env = self.eval_env.init_env(batch_size=1)
-     
-        base_dir = "/shared/Multi-square/Multi/Multi-Square-LLM/dataset/alfworld"
-        high_dir = os.path.join(base_dir, "high_data")
-        low_dir  = os.path.join(base_dir, "low_data")
-        run_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        tok_dir = os.path.join(base_dir, "token_stats")
-        os.makedirs(tok_dir, exist_ok=True)
-        tok_out = os.path.join(tok_dir, f"Qwen3B_{split}_{run_ts}_tokens.txt")
+
         high_data, low_data = (None, None)
         total_scores = []
         failure = 0
@@ -217,42 +210,25 @@ class EvalAgent:
             for tid, name in TASK_TYPES.items()
         }
         task_type_stats[0] = {"name": "unknown", "total": 0, "success": 0}
-        with open(tok_out, "w", encoding="utf-8") as tf:
-            tf.write(
-                "episode\ttask_type_id\ttask_type_name\tscore\twon\t"
-                "high_calls\thigh_in_sum\thigh_out_sum\thigh_ctx_max\t"
-                "low_calls\tlow_in_sum\tlow_out_sum\tlow_ctx_max\t"
-                "sub_dist1\tsub_dist2\tact_dist1\tact_dist2\t"
-                "gamefile\n"
+        for ep in range(num_episodes):
+            score, task_type_id, gamefile= self.eval_policy(
+                task_id=None, vari_id=None,
+                high_data_container=high_data,
+                low_data_container=low_data
             )
-            for ep in range(num_episodes):
-                print(f"EP: {ep}")
-                score, task_type_id, tok, gamefile, sub_d1, sub_d2, act_d1, act_d2 = self.eval_policy(
-                    task_id=None, vari_id=None,
-                    high_data_container=high_data,
-                    low_data_container=low_data
-                )
-                if task_type_id is None:
-                    task_type_id = 0
-                task_type_name = TASK_TYPES.get(task_type_id, "unknown")
-                won = 1 if score > 0 else 0
-                tf.write(
-                    f"{ep}\t{task_type_id}\t{task_type_name}\t{score}\t{won}\t"
-                    f"{tok['high_calls']}\t{tok['high_in_sum']}\t{tok['high_out_sum']}\t{tok['high_ctx_max']}\t"
-                    f"{tok['low_calls']}\t{tok['low_in_sum']}\t{tok['low_out_sum']}\t{tok['low_ctx_max']}\t"
-                    f"{sub_d1:.6f}\t{sub_d2:.6f}\t{act_d1:.6f}\t{act_d2:.6f}\t"
-                    f"{gamefile or ''}\n"
-                )
-                tf.flush()
-                task_type_stats[task_type_id]["total"] += 1
-                if score > 0:
-                    task_type_stats[task_type_id]["success"] += 1
-                if score == 0:
-                    failure += 1
-                else:
-                    total_scores.append(score)
-                total_task += 1
-                print(f"[Episode {ep+1}], Score: {score}")
+            if task_type_id is None:
+                task_type_id = 0
+            task_type_name = TASK_TYPES.get(task_type_id, "unknown")
+            won = 1 if score > 0 else 0
+            task_type_stats[task_type_id]["total"] += 1
+            if score > 0:
+                task_type_stats[task_type_id]["success"] += 1
+            if score == 0:
+                failure += 1
+            else:
+                total_scores.append(score)
+            total_task += 1
+            print(f"[Episode {ep+1}], Score: {score}")
         avg_score = 0.0
         if total_scores:
             avg_score = sum(total_scores) / len(total_scores)
@@ -276,17 +252,11 @@ class EvalAgent:
         return avg_score
     def eval_policy(self, task_id=None, vari_id=None,
                 high_data_container=None, low_data_container=None):
-        collect = (high_data_container is not None) and (low_data_container is not None)
         high_dev = _model_primary_device(self.high_policy.base)
         low_dev  = _model_primary_device(self.low_policy.base)
         episode_steps = 0
-        tok = {
-            "high_calls": 0, "high_in_sum": 0, "high_out_sum": 0, "high_ctx_max": 0,
-            "low_calls": 0,  "low_in_sum": 0,  "low_out_sum": 0,  "low_ctx_max": 0,
-        }
         subtask_gens = []
         action_gens = []
-        print("Reset")
         obs, info = self.eval_env.reset()
         obs_text = obs[0] if isinstance(obs, (list, tuple)) else obs
         task_type_id = None
@@ -329,12 +299,6 @@ class EvalAgent:
                 break
         if task_description is None:
             task_description = "Your task is unknown."
-        if collect:
-            high_obs_traj, high_subtask_traj = [], []
-            high_reward_traj, high_score_traj, high_done_traj = [], [], []
-            low_subtask_list = []
-            low_obs_list, low_action_list = [], []
-            low_reward_list, low_score_list, low_done_list = [], [], []
         lines = obs_text.split("\n")
         lines = [l.strip() for l in lines if "Welcome to TextWorld" not in l and l.strip() != ""]
         lines = [l for l in lines if not l.lower().startswith("your task is to")]
@@ -351,23 +315,14 @@ class EvalAgent:
         with torch.inference_mode():
             while not episode_done:
                 state = f"Group action: {group_action}. Current observation: {obs}"
-                if collect:
-                    high_obs_traj.append(state)
                 state_token = self.high_policy.tokenizer(state, return_tensors='pt')
                 _safe_cat(high_traj_token, state_token)
-                cur_hi_len = int(high_traj_token["input_ids"].shape[1])
-                tok["high_calls"] += 1
-                tok["high_in_sum"] += cur_hi_len
-                tok["high_ctx_max"] = max(tok["high_ctx_max"], cur_hi_len)
                 subtask = self.high_policy.generate_action(high_traj_token)[0]
                 subtask_gens.append(subtask)
-                if collect:
-                    high_subtask_traj.append(subtask)
                 subtask_token = self.high_policy.tokenizer(
                     subtask + self.high_policy.tokenizer.eos_token, return_tensors='pt'
                 )
                 _safe_cat(high_traj_token, subtask_token)
-                tok["high_out_sum"] += int(subtask_token["input_ids"].shape[1])
                 traj_subtask.append(subtask)
                 low_group_token = self.low_policy.tokenizer(
                     low_prompt + " Subtask: " + subtask, return_tensors='pt'
@@ -378,10 +333,6 @@ class EvalAgent:
                 raw_action_list = []
                 low_iter = 0
                 is_first_low_step = True
-                if collect:
-                    cur_low_subtask_prompt = low_prompt + " Subtask: " + subtask
-                    cur_low_obs_traj, cur_low_action_traj = [], []
-                    cur_low_reward_traj, cur_low_score_traj, cur_low_done_traj = [], [], []
                 while not subtask_done:
                     episode_steps += 1
                     low_iter += 1
@@ -393,8 +344,6 @@ class EvalAgent:
                             obs_for_model = obs
                     else:
                         obs_for_model = obs
-                    if collect:
-                        cur_low_obs_traj.append("Obs: " + obs_for_model)
                     obs_token = self.low_policy.tokenizer(
                         "Obs: " + obs_for_model,
                         return_tensors='pt'
@@ -407,10 +356,6 @@ class EvalAgent:
                     low_group_token["attention_mask"] = torch.cat(
                         [low_group_token["attention_mask"], obs_token["attention_mask"]], dim=1
                     )
-                    cur_lo_len = int(low_group_token["input_ids"].shape[1])
-                    tok["low_calls"] += 1
-                    tok["low_in_sum"] += cur_lo_len
-                    tok["low_ctx_max"] = max(tok["low_ctx_max"], cur_lo_len)
                     raw_action = self.low_policy.generate_action(low_group_token)[0]
                     action_gens.append(raw_action)
                     action, subtask_done = extract_action_done(raw_action)
@@ -432,15 +377,10 @@ class EvalAgent:
                     if isinstance(won_value, (list, tuple)):
                         won_value = won_value[0] if len(won_value) > 0 else False
                     score = 1.0 if won_value else 0.0
-                    if collect:
-                        cur_low_action_traj.append(raw_action)
-                        cur_low_reward_traj.append(r)
-                        cur_low_score_traj.append(score)
-                        cur_low_done_traj.append(bool(subtask_done))
+                    
                     action_token = self.low_policy.tokenizer(raw_action + self.low_policy.tokenizer.eos_token, return_tensors='pt')
                     action_token = _to_dev(action_token, low_dev)
                     _safe_cat(low_group_token, action_token)
-                    tok["low_out_sum"] += int(action_token["input_ids"].shape[1])
                     obs_text = obs_[0] if isinstance(obs_, (list, tuple)) else obs_
                     obs = obs_text
                     if episode_steps == self.args['env_step_limit']:
@@ -452,41 +392,8 @@ class EvalAgent:
                     if True in step_done if isinstance(step_done, (list, tuple)) else step_done:
                         episode_done = True
                         break
-                if collect:
-                    cur_low_obs_traj.append("Obs: " + obs)
                 traj_group_action.append(group_action)
-                if collect:
-                    low_subtask_list.append(cur_low_subtask_prompt)
-                    low_obs_list.append(cur_low_obs_traj)
-                    low_action_list.append(cur_low_action_traj)
-                    low_reward_list.append(cur_low_reward_traj)
-                    low_score_list.append(cur_low_score_traj)
-                    low_done_list.append(cur_low_done_traj)
-                    high_reward_traj.append(float(sum(cur_low_reward_traj)))
-                    high_score_traj.append(float(cur_low_score_traj[-1] if cur_low_score_traj else 0.0))
-                    high_done_traj.append(bool(episode_done))
         won_value = _info_get_scalar(info, "won", False)
         final_score = 1.0 if won_value else 0.0
-        if collect:
-            final_state = f"Group action: {group_action}. Current observation: {obs}"
-            high_obs_traj.append(final_state)
-            high_data_container['task_description'].append(
-                high_prompt + " Task Description:\n" + task_description
-            )
-            high_data_container['obs'].append(high_obs_traj)
-            high_data_container['subtask'].append(high_subtask_traj)
-            high_data_container['reward'].append(high_reward_traj)
-            high_data_container['score'].append(high_score_traj)
-            high_data_container['done'].append(high_done_traj)
-            low_data_container['subtask'].extend(low_subtask_list)
-            low_data_container['obs'].extend(low_obs_list)
-            low_data_container['action'].extend(low_action_list)
-            low_data_container['reward'].extend(low_reward_list)
-            low_data_container['score'].extend(low_score_list)
-            low_data_container['done'].extend(low_done_list)
         _episode_cleanup(high_traj_token, low_group_token, state_token if 'state_token' in locals() else None)
-        sub_d1 = distinct_n(subtask_gens, 1)
-        sub_d2 = distinct_n(subtask_gens, 2)
-        act_d1 = distinct_n(action_gens, 1)
-        act_d2 = distinct_n(action_gens, 2)
-        return final_score, task_type_id, tok, gamefile, sub_d1, sub_d2, act_d1, act_d2
+        return final_score, task_type_id, gamefile
