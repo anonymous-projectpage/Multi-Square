@@ -639,7 +639,7 @@
       margin-top: 0;
       margin-bottom: 12px;
     }
-    @media (max-width: 980px){
+    @media (max-width: 1180px){
       .results-grid{
         grid-template-columns: 1fr;
       }
@@ -758,7 +758,7 @@
     #teaser .caption{ margin-top: 10px; }
 
     /* Responsive: stack teaser */
-    @media (max-width: 980px){
+    @media (max-width: 1180px){
       .teaser-grid{ grid-template-columns: 1fr; }
       #teaser .figure{ margin-left: auto; margin-right: auto; }
     }
@@ -780,6 +780,17 @@
       color: rgba(255,255,255,1);
       text-decoration: underline;
       text-decoration-color: rgba(255,255,255,.55);
+    }
+
+
+    /* Results table figure: show slightly smaller preview (click to zoom) */
+    .table-figure{
+      max-width: 1180px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    @media (max-width: 1180px){
+      .table-figure{ max-width: 100%; }
     }
 
 </style>
@@ -1179,6 +1190,7 @@ Across diverse interactive environments, <strong><code>Multi</code></strong><sup
         </figcaption>
       </figure>
 
+
       
       <div class="results-grid">
         <div class="results-item">
@@ -1207,6 +1219,17 @@ Across diverse interactive environments, <strong><code>Multi</code></strong><sup
           </figure>
         </div>
       </div>
+
+      <p class="section-text" style="margin-bottom: 12px;">
+        <strong>Performance.</strong> Multi² achieves the strongest performance across most backbones and splits, suggesting that its gains generalize beyond a particular model setting.
+      </p>
+      <figure class="figure table-figure">
+        <!-- Put your table image at Figure/result_table.png (or change the src) -->
+        <img class="zoomable" src="Figure/result_table.png" alt="Benchmark results table" loading="lazy" />
+        <figcaption class="caption">
+          Table: Main benchmark results across base models and methods. (Click to enlarge)
+        </figcaption>
+      </figure>
 
 
     </section>
