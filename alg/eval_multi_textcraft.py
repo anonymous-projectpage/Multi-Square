@@ -104,27 +104,6 @@ def _index_craft_commands(commands_block: str) -> List[str]:
             lines.append(s)
     return lines
 
-
-def parse_relevant_indices(raw: str) -> List[int]:
-    if not raw:
-        return []
-    m = re.search(r"indices\s*:\s*\[([0-9,\s]+)\]", raw, flags=re.IGNORECASE)
-    if not m:
-        return []
-    nums: List[int] = []
-    for tok in m.group(1).split(","):
-        tok = tok.strip()
-        if tok.isdigit():
-            nums.append(int(tok))
-    out: List[int] = []
-    seen = set()
-    for i in nums:
-        if i not in seen:
-            out.append(i)
-            seen.add(i)
-    return out
-
-
 def build_relevant_commands_block(commands_block: str, indices: List[int]) -> str:
     if not indices:
         return ""
@@ -358,16 +337,8 @@ class EvalAgent:
         if hasattr(self.low_policy.base, "config"):
             self.low_policy.base.config.use_cache = use_cache
 
-        high_path = args.get("high_path") or (
-            f"{args['check_path']}/{args['benchmark']}/multi_bc/meta-llama/Llama-3.1-8B-Instruct/0.0001/detail3/2026-01-28_01-00/best"
-        )
-
-        low_path = args.get("low_path") or (
-            f"{args['check_path']}/{args['benchmark']}/multi_rl/detail3/meta-llama/Llama-3.1-8B-Instruct/A0.0001_C1e-05/lamb7_beta10/low/2026-01-28_01-59/30000"
-        )
-
-        if high_path is None or low_path is None:
-            raise ValueError("Please provide args['high_path'] and args['low_path'] for evaluation.")
+        high_path = "/path/to/your/checkpoint"
+        low_path = "/path/to/your/checkpoint"
 
         Agent.load_high_policy(self, high_path)
         Agent.load_low_policy(self, low_path)
@@ -387,44 +358,6 @@ class EvalAgent:
         self.env_step_limit = int(args.get("env_step_limit", 50)) 
         self.max_high_turns = int(args.get("max_high_turns", 32))
         self.max_low_turns = int(args.get("max_low_turns", 32))
-
-        base_dir = args.get("log_base_dir", "/shared/Multi-square/Multi/Multi-Square-LLM/dataset/textcraft")
-        os.makedirs(base_dir, exist_ok=True)
-
-        run_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.log_file = args.get("eval_log_file", os.path.join(base_dir, f"proposed22_Llama_eval_results_10000_{run_ts}_nohigh.tsv"))
-        self.tok_out = args.get("token_log_file", os.path.join(base_dir, "token_stats", f"proposed22_Llama_eval_results_10000_{run_ts}_nohigh.tsv"))
-        os.makedirs(os.path.dirname(self.tok_out), exist_ok=True)
-
-        if not os.path.exists(self.log_file):
-            with open(self.log_file, "w", encoding="utf-8") as f:
-                f.write("split\tseed\tlabel\tgoal\tscore\twon\tsteps\n")
-        if not os.path.exists(self.tok_out):
-            with open(self.tok_out, "w", encoding="utf-8") as f:
-                f.write(
-                    "split\tseed\tlabel\tscore\twon\tsteps\t"
-                    "high_calls\thigh_in_sum\thigh_out_sum\thigh_ctx_max\t"
-                    "low_calls\tlow_in_sum\tlow_out_sum\tlow_ctx_max\t"
-                    "total_tokens\ttoken_eff\n"
-                )
-
-    def _append_result_log(self, split: str, seed: int, label: str, goal: str, score: float, won: bool, steps: int):
-        goal_safe = (goal or "").replace("\t", " ").replace("\n", " ").strip()
-        line = f"{split}\t{seed}\t{label}\t{goal_safe}\t{score:.4f}\t{int(won)}\t{steps}\n"
-        with open(self.log_file, "a", encoding="utf-8") as f:
-            f.write(line)
-
-    def _append_token_log(self, split: str, seed: int, label: str, score: float, won: bool, steps: int, tok: Dict[str, float]):
-        total_tokens = tok["high_in_sum"] + tok["high_out_sum"] + tok["low_in_sum"] + tok["low_out_sum"]
-        token_eff = (score / total_tokens) if total_tokens > 0 else 0.0
-        line = (
-            f"{split}\t{seed}\t{label}\t{score:.4f}\t{int(won)}\t{steps}\t"
-            f"{tok['high_calls']}\t{tok['high_in_sum']}\t{tok['high_out_sum']}\t{tok['high_ctx_max']}\t"
-            f"{tok['low_calls']}\t{tok['low_in_sum']}\t{tok['low_out_sum']}\t{tok['low_ctx_max']}\t"
-            f"{total_tokens}\t{token_eff:.8f}\n"
-        )
-        with open(self.tok_out, "a", encoding="utf-8") as f:
-            f.write(line)
 
     def _shorten(self, s: str, max_len: int = 180) -> str:
         s = (s or "").replace("\n", " ").strip()
@@ -630,9 +563,6 @@ class EvalAgent:
             won = bool(score > 0.0)
             wins += int(won)
             scores.append(score)
-
-            self._append_result_log(split, seed, "Unknown", goal_line, score, won, steps)
-            self._append_token_log(split, seed, "Unknown", score, won, steps, tok)
             _episode_cleanup()
         if not scores:
             print("No episodes evaluated.")
