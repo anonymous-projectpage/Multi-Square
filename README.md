@@ -131,6 +131,49 @@ low_path = "/path/to/your/system2_warmup_checkpoint"
 python train_multi_rl.py
 ```
 
+#### 2. Online training
+- Set the configuration and base model in `./config/multi_rl_online.json`:
+```json
+{
+  "benchmark": "scienceworld",
+  "model_name": "/path/to/your/backbone"
+}
+```
+> benchmark can be one of: "scienceworld", "alfworld", "textcraft".
+
+- Depending on the benchmark, change the import in `./train_multi_rl_online.py`:
+
+  - **ScienceWorld**
+    ```python
+    from alg.multi_rl_sys2_online_scienceworld import Multi2
+    ```
+    
+  - **ALFWorld**
+    ```python
+    from alg.multi_rl_sys2_online_alfworld import Multi2
+    ```
+
+  - **TextCraft**
+    ```python
+    from alg.multi_rl_sys2_online_textcraft import Multi2
+    ```
+- Set the trained policy roots in the corresponding algorithm file under `./alg/` <br>
+(You must manually specify the paths to the trained System 1 model and the System 2 warmup model.) <br>
+Example:
+```python
+# e.g., ./alg/multi_rl_sys2_online*.py
+
+# Path to the trained System 1 (SFT) checkpoint
+high_path = "/path/to/your/system1_sft_checkpoint"
+
+# Path to the trained System 2 warmup checkpoint
+low_path = "/path/to/your/system2_offline-rl-trained_policy_checkpoint"
+```
+
+- Run the training script:
+```bash
+python train_multi_rl_online.py
+```
 
 ### Evaluation - ScienceWorld
 - Set **high_path** and **low_path** (the model path) in ```./alg/eval_multi_sci.py``` (to point to the trained model)
