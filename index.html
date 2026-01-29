@@ -22,6 +22,8 @@
     *{ box-sizing: border-box; }
     body{
       margin: 0;
+      position: relative;
+      overflow-x: hidden;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial, sans-serif;
       color: var(--text);
       background:
@@ -793,6 +795,165 @@
       .table-figure{ max-width: 100%; }
     }
 
+
+/* =========================
+   Lively UI add-ons
+   (1) Scroll reveal
+   (2) Animated soft background
+   (3) Sticky mini-nav
+   (5) Micro-interactions
+   ========================= */
+
+    /* Ensure animated background stays behind main content */
+    .container{ position: relative; z-index: 1; }
+
+/* (2) Soft animated gradient layer */
+body::before{
+  content:"";
+  position: fixed;
+  inset: -25%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 700px at 20% 20%, rgba(94,234,212,.18), transparent 60%),
+    radial-gradient(900px 700px at 80% 30%, rgba(96,165,250,.18), transparent 60%),
+    radial-gradient(900px 700px at 55% 85%, rgba(167,139,250,.16), transparent 60%);
+  filter: blur(42px);
+  opacity: .38;
+  transform: translate3d(0,0,0);
+  animation: bgFloat 18s ease-in-out infinite;
+}
+@keyframes bgFloat{
+  0%   { transform: translate3d(-1.2%, -0.6%, 0) scale(1.02); }
+  50%  { transform: translate3d( 1.4%,  1.0%, 0) scale(1.06); }
+  100% { transform: translate3d(-1.2%, -0.6%, 0) scale(1.02); }
+}
+
+/* (1) Scroll reveal: only active when JS enables it (prevents "blank page" if JS blocked) */
+body.reveal-enabled .reveal{
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .55s ease, transform .55s ease;
+  will-change: opacity, transform;
+}
+body.reveal-enabled .reveal.in-view{
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce){
+  body.reveal-enabled .reveal,
+  body.reveal-enabled .reveal.in-view{
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  body::before{ animation: none !important; }
+}
+
+/* (3) Sticky mini-nav */
+.mini-nav{
+  position: sticky;
+  top: 14px;
+  z-index: 200;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(255,255,255,.05);
+  box-shadow: 0 10px 30px rgba(0,0,0,.22);
+  backdrop-filter: blur(10px);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.mini-nav .mini-nav-label{
+  font-size: 12.5px;
+  font-weight: 760;
+  letter-spacing: -0.01em;
+  color: rgba(255,255,255,.76);
+  margin-right: 4px;
+  user-select: none;
+}
+.mini-nav a{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(255,255,255,.04);
+  color: rgba(255,255,255,.88);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 760;
+  letter-spacing: -0.01em;
+  transition: transform .14s ease, background .14s ease, border-color .14s ease, box-shadow .14s ease;
+}
+.mini-nav a:hover{
+  transform: translateY(-1px);
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.26);
+  box-shadow: 0 10px 26px rgba(0,0,0,.20);
+}
+.mini-nav a:active{
+  transform: translateY(0px);
+  box-shadow: none;
+}
+.mini-nav a.active{
+  border-color: rgba(96,165,250,.55);
+  background: rgba(96,165,250,.18);
+  box-shadow: 0 0 0 4px rgba(96,165,250,.16);
+}
+.mini-nav a:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(96,165,250,.28);
+}
+
+/* (5) Micro-interaction upgrades */
+.icon-btn,
+.bench-card,
+.teaser-link,
+.section-jump{
+  transition: transform .14s ease, background .14s ease, border-color .14s ease, box-shadow .14s ease, filter .14s ease;
+}
+.icon-btn:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 14px 38px rgba(0,0,0,.26);
+  filter: saturate(1.02);
+}
+.icon-btn:active{
+  transform: translateY(0px);
+  box-shadow: 0 8px 22px rgba(0,0,0,.22);
+}
+
+.bench-card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 14px 38px rgba(0,0,0,.22);
+}
+.bench-card:active{
+  transform: translateY(0px);
+  box-shadow: 0 10px 26px rgba(0,0,0,.18);
+}
+
+.teaser-link:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 14px 38px rgba(0,0,0,.22);
+}
+.teaser-link:active{
+  transform: translateY(0px);
+  box-shadow: 0 10px 26px rgba(0,0,0,.18);
+}
+
+.section-jump:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(0,0,0,.18);
+}
+.section-jump:active{
+  transform: translateY(0px);
+  box-shadow: none;
+}
+
 </style>
 </head>
 
@@ -853,6 +1014,17 @@
         </a>
       </div>
     </header>
+
+
+<nav class="mini-nav" id="miniNav" aria-label="Section navigation">
+  <span class="mini-nav-label" aria-hidden="true">Jump:</span>
+  <a href="#teaser" data-target="teaser">Teaser</a>
+  <a href="#abstract" data-target="abstract">Abstract</a>
+  <a href="#framework" data-target="framework">Framework</a>
+  <a href="#benchmarks" data-target="benchmarks">Benchmarks</a>
+  <a href="#results" data-target="results">Results</a>
+  <a href="#how-to-run" data-target="how-to-run">How to Run</a>
+</nav>
 
 
     <!-- Teaser (GIF) -->
@@ -1501,6 +1673,71 @@ low_path = "/path/to/your/system2_warmup_checkpoint"</code></pre>
         const base = (teaserGif.getAttribute('src') || '').split('?')[0];
         if(base) teaserGif.src = base + '?v=' + Date.now();
       }
+
+
+/* (1) Scroll reveal */
+const revealTargets = [
+  document.querySelector('header'),
+  ...document.querySelectorAll('.section'),
+  ...document.querySelectorAll('.bench-card'),
+  ...document.querySelectorAll('.teaser-link'),
+  ...document.querySelectorAll('.figure'),
+].filter(Boolean);
+
+// Enable reveal styling only when JS is active
+document.body.classList.add('reveal-enabled');
+
+revealTargets.forEach(el => el.classList.add('reveal'));
+
+if('IntersectionObserver' in window){
+  const revealObs = new IntersectionObserver((entries, obs) => {
+    entries.forEach(entry => {
+      if(entry.isIntersecting){
+        entry.target.classList.add('in-view');
+        obs.unobserve(entry.target); // reveal once
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+
+  revealTargets.forEach(el => revealObs.observe(el));
+}else{
+  // Fallback: show everything
+  revealTargets.forEach(el => el.classList.add('in-view'));
+}
+
+/* (3) Sticky mini-nav scrollspy */
+const miniNav = document.getElementById('miniNav');
+const navLinks = miniNav ? Array.from(miniNav.querySelectorAll('a[data-target]')) : [];
+const sectionIds = navLinks.map(a => a.getAttribute('data-target')).filter(Boolean);
+const sections = sectionIds.map(id => document.getElementById(id)).filter(Boolean);
+
+function setActive(id){
+  navLinks.forEach(a => {
+    const isActive = a.getAttribute('data-target') === id;
+    a.classList.toggle('active', isActive);
+    if(isActive) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
+}
+
+if(miniNav && sections.length && 'IntersectionObserver' in window){
+  const spyObs = new IntersectionObserver((entries) => {
+    // pick the most visible intersecting section
+    const visible = entries
+      .filter(e => e.isIntersecting)
+      .sort((a,b) => (b.intersectionRatio || 0) - (a.intersectionRatio || 0))[0];
+    if(visible && visible.target && visible.target.id) setActive(visible.target.id);
+  }, { threshold: [0.12, 0.2, 0.35], rootMargin: '-25% 0px -55% 0px' });
+
+  sections.forEach(sec => spyObs.observe(sec));
+
+  // initialize on load
+  const first = sections.find(s => s.getBoundingClientRect().top >= 0) || sections[0];
+  if(first) setActive(first.id);
+}else if(miniNav && sections.length){
+  // simple fallback
+  setActive(sections[0].id);
+}
 
     })();
   </script>
