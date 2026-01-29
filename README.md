@@ -141,7 +141,7 @@ python eval_multi_scienceworld.py
 ```
 
 ### Evaluation - ALFWorld
-- Set **high_path** and **self.low_path** (the model path) in ```./alg/eval_multi_alf.py``` (to point to the trained model)
+- Set **high_path** and **low_path** (the model path) in ```./alg/eval_multi_alf.py``` (to point to the trained model)
 - Set the configuration and base model in ```./config/eval_multi_rl.json```.
 ```
 python eval_multi_alfworld.py
