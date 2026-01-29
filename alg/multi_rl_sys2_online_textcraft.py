@@ -1,32 +1,4 @@
 
-"""
-AWAC-style Online RL adaptation for TextCraft (hierarchical System-2: high-level planner + low-level actor + critic).
-
-This file is written by adapting the ALFWorld online adaptation trainer (multi_rl_alfworld_online.py)
-and borrowing TextCraft environment loading / stepping / sanitization patterns from eval_multi_textcraft_current.py.
-
-Design choices (mirrors your existing pipelines):
-- Episode reset: env.reset(seed=...) and (optional) set split if supported.
-- Warmup: one env 'inventory' step at t=0 (discard its observation), while model-visible first observation stays "(start)".
-- High-policy produces a single subtask label (training-aligned).
-- Low-policy executes env actions until it emits a done marker (via extract_action_done / "; true/false"),
-  or env done, or step-limit.
-- Replay stores ONE item per subtask-trajectory:
-    { subtask(prompt str), obs(list[str]), action(list[str]), reward(list[float]), done(list[float]) }
-
-Project dependencies (must be importable):
-- util.model (HighPolicy, LowPolicy, Critic)
-- util.replay_buffer.batch_traj_process
-- util.extract.extract_action_done
-- prompt.inst (textcraft_high_prompt, textcraft_low_prompt)
-- alg.bc.Agent (for checkpoint loading)
-- textcraft.env.TextCraft
-
-Notes:
-- Device mismatch and dtype mismatch are handled (critic heads may be fp32 while actor is bf16).
-- Optional KL-to-reference (eta/kl_coef) uses a frozen ref_low_policy built ONCE.
-"""
-
 from __future__ import annotations
 
 import os
@@ -42,10 +14,6 @@ import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.tensorboard import SummaryWriter
-
-import wandb
-
-# ---- project imports ----
 from util.model import HighPolicy, LowPolicy, Critic
 from alg.bc import Agent as BC_AGENT
 from util.replay_buffer import batch_traj_process
@@ -54,24 +22,15 @@ from prompt.inst import textcraft_high_prompt, textcraft_low_prompt
 
 from textcraft.env import TextCraft
 
-
-# =========================
-# Data containers / buffers
-# =========================
-
 @dataclass
 class Episode:
-    # High-level task description (goal + commands block)
     task_description: str
-
-    # Low-level trajectory for one subtask
     obs: List[str]
     subtask: str
     action: List[str]
     reward: List[float]
     done: List[float]
 
-    # Metadata
     split: Optional[str] = None
     seed: Optional[int] = None
     goal: Optional[str] = None
@@ -82,8 +41,6 @@ class Episode:
 
 
 class SimpleOnlineBuffer:
-    """Episode-level FIFO buffer (stores Episode objects)."""
-
     def __init__(self, capacity_episodes: int = 2000, seed: int = 0):
         self.capacity = int(capacity_episodes)
         self.rng = random.Random(seed)
@@ -112,11 +69,6 @@ class SimpleOnlineBuffer:
             "done": [e.done for e in eps],
         }
 
-
-# =========================
-# Helpers (device / tokens)
-# =========================
-
 def _model_primary_device(model: torch.nn.Module) -> torch.device:
     for p in model.parameters():
         return p.device
@@ -129,9 +81,7 @@ def _to_dev(tok: Dict[str, torch.Tensor], device: torch.device) -> Dict[str, tor
             tok[k] = v.to(device, non_blocking=True)
     return tok
 
-
 def _safe_cat(dst_tok: Dict[str, torch.Tensor], src_tok: Dict[str, torch.Tensor]) -> None:
-    """Concat tokenizer dicts while forcing src to dst device."""
     dev = dst_tok["input_ids"].device
     if torch.is_tensor(src_tok.get("input_ids", None)):
         src_tok["input_ids"] = src_tok["input_ids"].to(dev, non_blocking=True)
@@ -159,17 +109,7 @@ def _scalar(x, default=0.0) -> float:
 def _normalize_ws(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip()).strip()
 
-
-# =========================
-# TextCraft helpers (borrowed/condensed from eval_multi_textcraft_current.py)
-# =========================
-
 def parse_textcraft_initial(obs0: str) -> Tuple[str, str]:
-    """
-    Parse initial observation into:
-      - goal_line: string without 'Goal:' prefix
-      - commands_block: starts with 'Crafting commands:' (if present)
-    """
     text = (obs0 or "").strip()
     text = re.sub(r"^\s*Instruction:\s*\n", "", text, flags=re.IGNORECASE)
 
@@ -194,7 +134,6 @@ def build_task_description(goal_line: str, commands_block: str) -> str:
 
 
 def parse_high_subtask(raw: str) -> str:
-    """Extract a single subtask line in the SFT label format."""
     txt = (raw or "").strip()
     if not txt:
         return ""
@@ -301,7 +240,6 @@ def _craft_dependency_closure(target_outputs: List[str], out2ins: Dict[str, List
 
 
 def build_relevant_commands_block_auto(commands_block: str, *, subtask: str) -> str:
-    """Infer relevant recipes from the subtask (training-like; do not print indices)."""
     craft_cmds, out2idx, out2ins = _index_craft_map(commands_block)
     craftable = set(out2idx.keys())
 
@@ -338,7 +276,6 @@ def build_relevant_commands_block_auto(commands_block: str, *, subtask: str) -> 
 
 
 def sanitize_textcraft_action(action: str, allowed_crafts: Optional[set] = None) -> str:
-    """Best-effort sanitize a single TextCraft command (inventory/get/craft)."""
     raw = action or ""
     s = raw.strip()
 
@@ -421,11 +358,6 @@ def sanitize_textcraft_action(action: str, allowed_crafts: Optional[set] = None)
 
 
 def env_step_textcraft(env, action: str, allowed_crafts: Optional[set] = None):
-    """
-    Step TextCraft with a sanitized action.
-    If execution fails ("Could not execute ..."), retry with '> ' prefix.
-    Supports both 4-tuple and 5-tuple returns.
-    """
     a = sanitize_textcraft_action(action, allowed_crafts=allowed_crafts)
 
     out = env.step(a)
@@ -447,22 +379,10 @@ def env_step_textcraft(env, action: str, allowed_crafts: Optional[set] = None):
     return str(obs), float(reward), bool(done), info
 
 
-# =========================
-# Main Trainer
-# =========================
-
 class Multi2:
-    """
-    Online RL trainer for TextCraft:
-      - collect_online_data(): runs env rollouts and pushes low-level trajectories into replay
-      - update_awac_on_batch(): AWAC update for critic+actor
-      - update(): training loop
-    """
-
     def __init__(self, args: Dict[str, Any]):
         self.args = args
 
-        # ---- distributed rank (safe defaults) ----
         self.global_rank = int(os.environ.get("RANK", os.environ.get("SLURM_PROCID", 0)))
         self.local_rank = int(os.environ.get("LOCAL_RANK", 0))
         self.world_size = int(os.environ.get("WORLD_SIZE", 1))
@@ -470,9 +390,7 @@ class Multi2:
         os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:128")
         os.environ.setdefault("TOKENIZERS_PARALLELISM", os.environ.get("TOKENIZERS_PARALLELISM", "false"))
 
-        # ---- models ----
         self.high_policy = HighPolicy(args)
-        # Keep high-policy off GPU during training to avoid OOM while loading low/critic.
         try:
             self.high_policy.to(torch.device('cpu'))
         except Exception:
@@ -485,24 +403,14 @@ class Multi2:
 
         self.low_policy.train()
         self.critic.train()
-        self.high_policy.eval()  # rollout-only
+        self.high_policy.eval() 
 
-        # ---- load checkpoints ----
-        # Provide via args["high_path"]/args["low_path"]; otherwise keep the same convention as your other scripts.
-        # high_path = args.get("high_path") or f"{args['check_path']}/{args['benchmark']}/multi_bc/{args['model_name']}/best"
-        # low_path  = args.get("low_path")  or f"{args['check_path']}/{args['benchmark']}/multi_rl/{args['model_name']}/low/latest"
-
-        high_path = args.get("high_path") or (
-            f"{args['check_path']}/{args['benchmark']}/multi_bc/Qwen/Qwen2.5-3B-Instruct/0.0001/detail3/2026-01-27_16-53/best" #Qwen
-        )
-        low_path = args.get("low_path") or (
-            f"{args['check_path']}/{args['benchmark']}/multi_rl/detail3/Qwen/Qwen2.5-3B-Instruct/A0.0001_C1e-05/lamb7_beta10/low/2026-01-27_16-37/7000"
-        )
+        high_path = "/path/to/your/checkpoint"
+        low_path = "/path/to/your/checkpoint"
 
         BC_AGENT.load_high_policy(self, high_path)
         BC_AGENT.load_low_policy(self, low_path)
 
-        # After loading weights, enforce: high-policy on CPU, low+critic on training device.
         try:
             self.high_policy.to(torch.device('cpu'))
         except Exception:
@@ -510,21 +418,12 @@ class Multi2:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        # ---- device alignment (critical) ----
         self._ensure_device_alignment()
-
-        # ---- optional frozen reference low policy (KL) ----
-        # self.ref_low_policy = None
-        # self._need_ref = float(args.get('eta', args.get('kl_coef', 0.0))) > 0.0
 
         self.ref_low_policy = None
         if float(args.get("eta", 0.0)) > 0.0:
             self.ref_low_policy = self._build_frozen_ref_low_policy(move_to_cpu=bool(args.get("ref_on_cpu", True)))
 
-
-        # Build ref lazily (first time it's needed) and keep it on CPU to avoid VRAM spikes.
-
-        # ---- memory: disable kv-cache during training ----
         try:
             if hasattr(self.low_policy, "base") and hasattr(self.low_policy.base, "config"):
                 self.low_policy.base.config.use_cache = False
@@ -535,7 +434,6 @@ class Multi2:
         except Exception:
             pass
 
-        # ---- optimizers ----
         self.critic_optim = torch.optim.AdamW(
             [p for p in self.critic.parameters() if p.requires_grad],
             lr=float(args.get("critic_lr", 1e-4)),
@@ -551,27 +449,14 @@ class Multi2:
             weight_decay=float(args.get("weight_decay", 1e-2)),
         )
 
-        # ---- logging ----
         self.run_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
         base_log = f"{args['log_path']}/{args['benchmark']}/multi_OnlineTextCraft/{args['model_name']}/{self.run_timestamp}"
         os.makedirs(base_log, exist_ok=True)
         self.writer_actor = SummaryWriter(log_dir=os.path.join(base_log, "actor"))
         self.writer_critic = SummaryWriter(log_dir=os.path.join(base_log, "critic"))
 
-        if not getattr(wandb, "run", None):
-            wandb.init(
-                project=args.get("wandb_project", "multi_new"),
-                name=args.get("wandb_name", f"AWAC_Online_TextCraft_{args['model_name']}"),
-                group=args.get("wandb_group", f"AWAC_Online_{args['benchmark']}"),
-                config=args,
-                mode=os.getenv("WANDB_MODE", "online"),
-            )
-
-        # ---- env ----
-        # Same logic as eval_multi_textcraft_current.py
         textcraft_dir = args.get("textcraft_dir")
         if textcraft_dir is None:
-            # default: folder next to this script (works when placed in alg/)
             here = os.path.dirname(os.path.abspath(__file__))
             textcraft_dir = os.path.abspath(os.path.join(here, "textcraft"))
         mc_dir = os.path.abspath(textcraft_dir)
@@ -585,10 +470,9 @@ class Multi2:
 
         self.split = str(args.get("tc_split", args.get("split", "train")))
         self.seed_rng = random.Random(int(args.get("seed", 0)))
-        self.seed_space = int(args.get("seed_space", 1000000))  # seeds are sampled from [0, seed_space)
+        self.seed_space = int(args.get("seed_space", 1000000)) 
         self.use_seed_replacement = bool(args.get("seed_with_replacement", True))
 
-        # ---- replay buffer ----
         cap = int(args.get("online_capacity_episodes", 2000))
         seed = int(args.get("seed", 0))
         self.online_buffer = SimpleOnlineBuffer(capacity_episodes=cap, seed=seed)
@@ -596,11 +480,8 @@ class Multi2:
         seed_online_buffer_from_offline
         self.global_step = 0
 
-    # ------------------------
-    # Device management
-    # ------------------------
+ 
     def _ensure_device_alignment(self):
-        """Force critic (incl. target heads) onto the same device as low_policy.base."""
         low_dev = _model_primary_device(self.low_policy.base)
 
         try:
@@ -623,7 +504,6 @@ class Multi2:
         self._train_device = low_dev
 
     def _build_frozen_ref_low_policy(self, move_to_cpu: bool = True):
-        """Create a frozen reference low policy exactly once."""
         ref = copy.deepcopy(self.low_policy)
         ref.eval()
         for p in ref.parameters():
@@ -637,9 +517,6 @@ class Multi2:
                     ref.base.to(torch.device("cpu"))
         return ref
 
-    # ------------------------
-    # Token length estimation
-    # ------------------------
     def _estimate_low_traj_token_len(
         self,
         subtask_prompt: str,
@@ -663,19 +540,14 @@ class Multi2:
                 return n
         return n
 
-    # ------------------------
-    # Rollout
-    # ------------------------
     @torch.no_grad()
     def rollout_one_env_episode(self, seed: int, max_steps: Optional[int] = None, debug: bool = False) -> List[Episode]:
-        """Run one TextCraft episode; return list of low-level subtask trajectories."""
         if max_steps is None:
             max_steps = int(self.args.get("env_step_limit", 50))
 
         high_dev = _model_primary_device(self.high_policy.base)
         low_dev = _model_primary_device(self.low_policy.base)
 
-        # best-effort: set split if env supports it
         try:
             if hasattr(self.env, "set_split"):
                 self.env.set_split(self.split)
@@ -688,14 +560,12 @@ class Multi2:
         goal_line, commands_block = parse_textcraft_initial(str(obs0))
         task_description = build_task_description(goal_line, commands_block)
 
-        # Allowed craft commands for this episode
         allowed_crafts: set = set()
         for ln in (commands_block or "").splitlines():
             ln = ln.strip()
             if ln.lower().startswith("craft "):
                 allowed_crafts.add(ln)
 
-        # Warmup: inventory once (discard obs), keep model-visible obs as "(start)"
         _warm_obs, _, _, _ = env_step_textcraft(self.env, "inventory", allowed_crafts=allowed_crafts)
         obs_cur = "(start)"
 
@@ -704,7 +574,6 @@ class Multi2:
         episode_return = 0.0
         group_action: List[str] = []
 
-        # init high context
         high_prompt_str = (textcraft_high_prompt + task_description + "\n").strip()
         high_tok = self.high_policy.tokenizer(high_prompt_str, return_tensors="pt")
         high_tok = _to_dev(high_tok, high_dev)
@@ -718,7 +587,6 @@ class Multi2:
             if episode_done or episode_steps >= max_steps:
                 break
 
-            # ===== HIGH: propose subtask =====
             state = f"Group action: {group_action}. Current observation: {obs_cur}\n"
             state_tok = self.high_policy.tokenizer(state, return_tensors="pt")
             _safe_cat(high_tok, state_tok)
@@ -728,8 +596,6 @@ class Multi2:
 
             subtask_tok = self.high_policy.tokenizer(subtask + self.high_policy.tokenizer.eos_token, return_tensors="pt")
             _safe_cat(high_tok, subtask_tok)
-
-            # ===== LOW: execute until subtask_done OR env done =====
             low_prompt_str = textcraft_low_prompt + "\nSubtask: " + subtask.strip() + "\n"
             rel_block = build_relevant_commands_block_auto(commands_block, subtask=subtask)
             if rel_block:
@@ -750,7 +616,6 @@ class Multi2:
                 if subtask_done or episode_done or episode_steps >= max_steps:
                     break
 
-                # append obs
                 cur_obs.append(str(obs_cur))
                 obs_tok = self.low_policy.tokenizer(f"Obs: {obs_cur}\n", return_tensors="pt")
                 obs_tok = _to_dev(obs_tok, low_dev)
@@ -759,7 +624,6 @@ class Multi2:
                 raw_action = self.low_policy.generate_action(low_tok)[0]
                 raw_action = str(raw_action).strip()
 
-                # Parse training-style "<action>; <bool>"
                 m = re.match(r"^(.*?);\s*(true|false)\s*$", raw_action, flags=re.IGNORECASE)
                 if m:
                     action = m.group(1).strip()
@@ -773,7 +637,6 @@ class Multi2:
                 if not (action or "").strip():
                     action = "inventory"
 
-                # Step env (sanitize inside)
                 obs2, r, done, info = env_step_textcraft(self.env, action, allowed_crafts=allowed_crafts)
                 obs2 = str(obs2).strip()
 
@@ -784,12 +647,10 @@ class Multi2:
                 episode_return += float(r)
                 episode_done = bool(done) or (episode_steps >= max_steps)
 
-                # store raw_action in replay (training format contains '; bool' sometimes)
                 cur_act.append(raw_action)
                 cur_rew.append(float(r))
                 cur_done.append(1.0 if episode_done else 0.0)
 
-                # append executed action tokens (helps stability)
                 act_for_ctx = f"{parsed_action}; {str(bool(subtask_done))}"
                 act_tok = self.low_policy.tokenizer(act_for_ctx + self.low_policy.tokenizer.eos_token, return_tensors="pt")
                 act_tok = _to_dev(act_tok, low_dev)
@@ -805,7 +666,6 @@ class Multi2:
                 if subtask_done:
                     break
 
-            # enforce aligned lengths
             T = min(len(cur_obs), len(cur_act), len(cur_rew), len(cur_done))
             cur_obs, cur_act, cur_rew, cur_done = cur_obs[:T], cur_act[:T], cur_rew[:T], cur_done[:T]
             if T <= 0:
@@ -814,7 +674,6 @@ class Multi2:
             max_train_tokens = int(self.args.get("max_train_tokens", 3000))
             tlen = self._estimate_low_traj_token_len(low_prompt_str, cur_obs, cur_act, limit=max_train_tokens + 1)
             if tlen > max_train_tokens:
-                # skip overly long trajectories
                 continue
 
             ep_return = float(np.sum(cur_rew))
@@ -844,9 +703,6 @@ class Multi2:
 
         return low_episodes
 
-    # ------------------------
-    # Batch helpers (same as other trainers)
-    # ------------------------
     def _pad_or_trunc_bn(self, x: torch.Tensor, N: int, pad_value: float) -> torch.Tensor:
         if x.dim() != 2:
             raise ValueError(f"_pad_or_trunc_bn expects 2D tensor, got shape={tuple(x.shape)}")
@@ -922,16 +778,6 @@ class Multi2:
 
 
     def seed_online_buffer_from_offline(self):
-        """
-        offline low dataset(json)를 읽어서 online replay buffer를 초기 채움.
-        args 예:
-        - seed_offline_low_path: "/path/to/expert_low.json"
-        - seed_offline_num_items: 2000 (없으면 frac 사용)
-        - seed_offline_frac: 0.05
-        - seed_offline_success_only: True
-        - seed_offline_shuffle: True
-        """
-        # 수정
         path = self.args.get("seed_offline_low_path",
                             f"./dataset/{self.args.get('benchmark')}/low_data/expert.json") \
             or self.args.get("offline_low_path", None) \
@@ -944,19 +790,15 @@ class Multi2:
         with open(path, "r") as f:
             data = json.load(f)
 
-        # --- NEW: columnar(dict-of-lists) 지원 ---
         required = ["subtask", "obs", "action", "reward", "done"]
         if isinstance(data, dict) and all(k in data for k in required) and all(isinstance(data[k], list) for k in required):
-            # expert.json 같은 컬럼형 포맷
             n = min(len(data[k]) for k in required)
 
-            # optional columns도 같이 보존하고 싶으면:
             optional_keys = [k for k in data.keys() if k not in required]
             data_rows = []
             for i in range(n):
                 row = {k: data[k][i] for k in required}
                 for k in optional_keys:
-                    # score 같은 것들
                     try:
                         row[k] = data[k][i]
                     except Exception:
@@ -964,7 +806,6 @@ class Multi2:
                 data_rows.append(row)
             data = data_rows
 
-        # --- 기존 wrapper 처리 (data/episodes)만 유지 ---
         if isinstance(data, dict):
             if "data" in data and isinstance(data["data"], list):
                 data = data["data"]
@@ -973,23 +814,9 @@ class Multi2:
             else:
                 raise ValueError(f"[seed_offline] unsupported dict format keys={list(data.keys())[:20]}")
 
-
-
-        # # 파일이 dict wrapper면 list로 풀기
-        # if isinstance(data, dict):
-        #     # 흔한 케이스들 대응
-        #     if "data" in data and isinstance(data["data"], list):
-        #         data = data["data"]
-        #     elif "episodes" in data and isinstance(data["episodes"], list):
-        #         data = data["episodes"]
-        #     else:
-        #         # 그냥 값이 list가 아닐 경우
-        #         data = list(data.values())
-
         if not isinstance(data, list):
             raise ValueError(f"[seed_offline] expected list, got {type(data)}")
 
-        # 샘플링 설정
         num_items = self.args.get("seed_offline_num_items", None)
         frac = float(self.args.get("seed_offline_frac", 0.0))
         success_only = bool(self.args.get("seed_offline_success_only", False))
@@ -1022,26 +849,17 @@ class Multi2:
 
             if (not obs) or (not action) or (reward is None) or (done is None):
                 continue
-            
-            # 길이 정렬(안전)
+          
             T = min(len(obs), len(action), len(reward), len(done))
             if len(obs) == len(action) + 1:
-                # obs가 마지막 obs를 하나 더 들고 있는 포맷이면 마지막 obs drop
                 obs = obs[:-1]
             T = min(len(obs), len(action), len(reward), len(done))
             obs, action, reward, done = obs[:T], action[:T], reward[:T], done[:T]
 
-
-
-            # subtask는 offline에서 string / list 둘 다 올 수 있어서 보정
             subtask_prompt = row.get("subtask", "")
             if isinstance(subtask_prompt, list):
-                # list로 들어오면 join해서 하나의 프롬프트로
                 subtask_prompt = " ".join([str(x) for x in subtask_prompt])
             subtask_prompt = str(subtask_prompt)
-
-            # 성공만 넣고 싶으면 reward 기준 필터
-            # (ScienceWorld는 sparse해서 sum>0 또는 max>0 둘 다 가능)
             if success_only:
                 try:
                     if float(np.max(np.array(reward))) <= 0.0:
@@ -1050,7 +868,6 @@ class Multi2:
                 except Exception:
                     pass
 
-            # 길이 필터 (토큰 기준)
             try:
                 tlen = self._estimate_low_traj_token_len(
                     subtask_prompt=subtask_prompt,
@@ -1089,23 +906,16 @@ class Multi2:
                 f"skipped_long={skipped_long} skipped_fail={skipped_fail} buffer_size={len(self.online_buffer)}")
 
 
-
-
-    # ------------------------
-    # Collect online data
-    # ------------------------
     def _sample_episode_seed(self) -> int:
         if self.use_seed_replacement:
             return self.seed_rng.randrange(self.seed_space)
-        # without replacement: just walk forward deterministically
         base = int(self.args.get("seed", 0))
         return (base + self.global_step) % self.seed_space
 
     def collect_online_data(self) -> int:
-        """Run env episodes and push low-level trajectories to online buffer."""
         num_eps = int(self.args.get("online_episodes_per_epoch", 10))
 
-        push_mode = str(self.args.get("online_push_mode", "downsample_fail"))  # all|success_only|downsample_fail
+        push_mode = str(self.args.get("online_push_mode", "downsample_fail"))
         min_return = float(self.args.get("online_min_return", 0.0))
         keep_fail_ratio = float(self.args.get("online_keep_fail_ratio", 0.1))
 
@@ -1134,11 +944,7 @@ class Multi2:
             print(f"[collect_online_data] env_eps={num_eps} pushed_low_trajs={pushed} buffer={len(self.online_buffer)} split={self.split}")
         return num_eps
 
-    # ------------------------
-    # AWAC update
-    # ------------------------
     def update_awac_on_batch(self, batch_data: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, float]]:
-        # Re-assert device alignment (defensive).
         self._ensure_device_alignment()
 
         actor = self.low_policy
@@ -1208,7 +1014,6 @@ class Multi2:
                 rewards = rewards.index_select(0, idx)
                 dones = dones.index_select(0, idx)
 
-            # Align hidden to each head device/dtype (prevents bf16/fp32 mismatch)
             q_head_param = next(critic.q_head.parameters())
             tgt_head_param = next(critic.target_q_head.parameters())
 
@@ -1217,7 +1022,6 @@ class Multi2:
             a_mask_q = action_end_mask_actor.to(device=q_head_param.device, non_blocking=True)
             a_mask_tgt = action_end_mask_actor.to(device=tgt_head_param.device, non_blocking=True)
 
-            # ----- critic update -----
             with torch.no_grad():
                 q_tgt_all = critic.target_q_head(h_tgt).squeeze(-1)
                 q_tgt, q_mask = self.extract_valid(q_tgt_all, a_mask_tgt)
@@ -1248,11 +1052,9 @@ class Multi2:
 
             q_tgt_small = q_tgt.detach()
 
-            # free large tensors before actor update
             del hidden_states, h_q, h_tgt, a_mask_q, a_mask_tgt, q_tgt_all, q_sa_all, q_sa, q_mask, q_mask_sa, rewards, dones, next_q, target, td_err2
 
-            # ----- actor update -----
-            logp_on, masks_on = actor.get_log_prob(tokens)  # (b, L-1)
+            logp_on, masks_on = actor.get_log_prob(tokens) 
             action_counts = action_end_mask_actor.sum(dim=1).to(dtype=torch.long)
             max_actions = int(action_counts.max().item()) if action_counts.numel() > 0 else 0
             logp_on_valid = self._extract_valid_action_probs(logp_on, masks_on, max_actions).to(torch.float32)
@@ -1331,9 +1133,6 @@ class Multi2:
         }
         return torch.tensor(diag["q_loss"], device=actor_dev), torch.tensor(diag["actor_loss"], device=actor_dev), diag
 
-    # ------------------------
-    # Train loop
-    # ------------------------
     def update(self):
         epochs = int(self.args.get("epochs", 1))
         batch_size = int(self.args.get("online_batch_episodes", 4))
@@ -1350,14 +1149,6 @@ class Multi2:
                 q_loss, a_loss, diag = self.update_awac_on_batch(batch)
 
                 if (self.global_step % log_freq) == 0 and self.global_rank == 0:
-                    wandb.log(
-                        {
-                            "train/critic_loss": float(q_loss),
-                            "train/actor_loss": float(a_loss),
-                            **{f"train/{k}": v for k, v in diag.items()},
-                        },
-                        step=self.global_step,
-                    )
                     print(
                         f"[epoch {epoch} | upd {u+1}/{updates_per_epoch} | step {self.global_step}] "
                         f"critic_loss={float(q_loss):.6f} actor_loss={float(a_loss):.6f} "
@@ -1368,13 +1159,11 @@ class Multi2:
 
                 self.global_step += 1
 
-                # periodic checkpoint
                 save_every = int(self.args.get("save_every_updates", 100))
                 if save_every > 0 and (self.global_step % save_every) == 0:
                     if self.global_rank == 0:
                         self.save(tag=f"step{self.global_step}")
 
-            # save per epoch if requested
             save_every_ep = int(self.args.get("save_every_epochs", 5))
             if save_every_ep > 0 and ((epoch + 1) % save_every_ep) == 0:
                 if self.global_rank == 0:
@@ -1386,9 +1175,6 @@ class Multi2:
         if self.global_rank == 0:
             self.save(tag=f"final_epoch{epochs}_step{self.global_step}")
 
-    # ------------------------
-    # Save
-    # ------------------------
     def save(self, tag: Optional[str] = None):
         args = self.args
         tag = tag or "final"
@@ -1403,7 +1189,7 @@ class Multi2:
         self.low_policy.tokenizer.save_pretrained(actor_dir)
 
         try:
-            self.critic.save_pretrained(critic_dir)  # type: ignore[attr-defined]
+            self.critic.save_pretrained(critic_dir) 
         except Exception:
             torch.save(self.critic.state_dict(), os.path.join(critic_dir, "critic.pt"))
 
@@ -1412,12 +1198,7 @@ class Multi2:
             print(f"[save] critic -> {critic_dir}")
 
 
-# =========================
-# Standalone entrypoint
-# =========================
-
 def _parse_args_to_dict() -> Dict[str, Any]:
-    """Minimal CLI. In your project you likely pass args as a dict already."""
     import argparse
 
     p = argparse.ArgumentParser()
@@ -1427,18 +1208,15 @@ def _parse_args_to_dict() -> Dict[str, Any]:
     p.add_argument("--model_name", type=str, default="Qwen3B")
     p.add_argument("--seed", type=int, default=0)
 
-    # model ckpts (recommended to pass explicitly)
     p.add_argument("--high_path", type=str, default=None)
     p.add_argument("--low_path", type=str, default=None)
 
-    # env
     p.add_argument("--textcraft_dir", type=str, default=None)
     p.add_argument("--tc_split", type=str, default="train")
     p.add_argument("--env_step_limit", type=int, default=50)
     p.add_argument("--max_high_turns", type=int, default=32)
     p.add_argument("--max_low_turns", type=int, default=32)
 
-    # training
     p.add_argument("--epochs", type=int, default=1)
     p.add_argument("--updates_per_epoch", type=int, default=50)
     p.add_argument("--online_episodes_per_epoch", type=int, default=10)
@@ -1461,18 +1239,12 @@ def _parse_args_to_dict() -> Dict[str, Any]:
     p.add_argument("--online_min_return", type=float, default=0.0)
     p.add_argument("--online_keep_fail_ratio", type=float, default=0.1)
 
-    # seed sampling
     p.add_argument("--seed_space", type=int, default=1000000)
     p.add_argument("--seed_with_replacement", action="store_true")
 
-    # KL regularization
     p.add_argument("--eta", type=float, default=0.0)
     p.add_argument("--ref_on_cpu", action="store_true")
 
-    # saving/logging
-    p.add_argument("--wandb_project", type=str, default="multi_new")
-    p.add_argument("--wandb_name", type=str, default="")
-    p.add_argument("--wandb_group", type=str, default="")
 
     p.add_argument("--log_freq", type=int, default=10)
     p.add_argument("--debug_rollout", action="store_true")
@@ -1482,10 +1254,6 @@ def _parse_args_to_dict() -> Dict[str, Any]:
 
     ns = p.parse_args()
     d = vars(ns)
-    if not d["wandb_name"]:
-        d["wandb_name"] = f"AWAC_Online_TextCraft_{d['model_name']}"
-    if not d["wandb_group"]:
-        d["wandb_group"] = f"AWAC_Online_{d['benchmark']}"
     return d
 
 
