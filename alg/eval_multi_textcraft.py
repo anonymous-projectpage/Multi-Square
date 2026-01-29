@@ -59,9 +59,7 @@ def parse_textcraft_initial(obs0: str) -> Tuple[str, str]:
     m_cmd = re.search(r"(?is)(Crafting commands:\s*\n.*?)(?:\n\s*Goal:\s*|$)", text)
     if m_cmd:
         commands_block = m_cmd.group(1).strip()
-
     return goal_line, commands_block
-
 
 def build_task_description(goal_line: str, commands_block: str) -> str:
     g = (goal_line or "").strip().rstrip(".").strip()
@@ -86,10 +84,8 @@ def parse_high_subtask(raw: str) -> str:
         s = s.strip("\"'").strip()
         if s:
             cleaned.append(s)
-
     if not cleaned:
         return ""
-
     prefixes = ("acquire needed items", "craft target", "check inventory")
     for s in cleaned:
         if s.lower().startswith(prefixes):
@@ -123,10 +119,8 @@ def _strip_qty_item(s: str) -> str:
     s = re.sub(r"^\d+\s+", "", s).strip()
     return s
 
-
 def _normalize_item_key(s: str) -> str:
     return (s or "").strip().lower().rstrip(".").strip()
-
 
 def _parse_craft_line(line: str) -> Tuple[Optional[str], List[str]]:
     m = re.match(r"^craft\s+\d+\s+(.+?)\s+using\s+(.+)$", (line or "").strip(), flags=re.IGNORECASE)
@@ -142,7 +136,6 @@ def _parse_craft_line(line: str) -> Tuple[Optional[str], List[str]]:
         if k:
             inputs.append(k)
     return out_item, inputs
-
 
 def _index_craft_map(commands_block: str) -> Tuple[List[str], Dict[str, int], Dict[str, List[str]]]:
     craft_cmds = _index_craft_commands(commands_block)
@@ -171,7 +164,6 @@ def _extract_needed_items_from_subtask(subtask: str) -> List[str]:
             out.append(p)
     return out
 
-
 def _craft_dependency_closure(target_outputs: List[str], out2ins: Dict[str, List[str]], craftable: set) -> List[str]:
     seen = set()
     q: List[str] = []
@@ -189,7 +181,6 @@ def _craft_dependency_closure(target_outputs: List[str], out2ins: Dict[str, List
                 seen.add(ing)
                 q.append(ing)
     return q
-
 
 def build_relevant_commands_block_auto(commands_block: str, *, rel_indices: List[int], subtask: str, goal_line: str) -> str:
     craft_cmds, out2idx, out2ins = _index_craft_map(commands_block)
@@ -223,7 +214,6 @@ def build_relevant_commands_block_auto(commands_block: str, *, rel_indices: List
         return ""
     return "Crafting commands:\n" + "\n".join(lines)
 
-
 def sanitize_textcraft_action(action: str, allowed_crafts: Optional[set] = None) -> str:
     raw = action or ""
     s = raw.strip()
@@ -240,7 +230,6 @@ def sanitize_textcraft_action(action: str, allowed_crafts: Optional[set] = None)
     s = s.lstrip(" ;|,").strip()
     if not s:
         return "inventory"
-
     if ";" in s:
         left = s.split(";", 1)[0].strip()
         if left:
@@ -250,21 +239,17 @@ def sanitize_textcraft_action(action: str, allowed_crafts: Optional[set] = None)
             s = parts[0] if parts else ""
     if "|" in s:
         s = s.split("|", 1)[0].strip()
-
     s = s.strip()
     if not s:
         return "inventory"
     s = re.sub(r"(?i)(?<!^)(?<!\s)(inventory|get|craft)\b", r" \1", s)
-
     s_low = s.lower()
-
     if s_low.startswith("think"):
         return "inventory"
     m_syn = re.match(r"^(find|gather|acquire|pickup|pick up)\s+(.+)$", s_low)
     if m_syn:
         s = "get " + m_syn.group(2).strip()
         s_low = s.lower()
-
     if s_low in ("inv", "inventory"):
         return "inventory"
     m = re.search(r"\b(inventory|get|craft)\b", s_low)
@@ -278,12 +263,10 @@ def sanitize_textcraft_action(action: str, allowed_crafts: Optional[set] = None)
         if m2:
             s = s[:m2.start()].strip()
         return s.rstrip(".").strip()
-
     if s_low.startswith("craft "):
         s = s.rstrip(".").strip()
         if allowed_crafts:
             norm = _normalize_ws(s_low)
-
             for ac in allowed_crafts:
                 if _normalize_ws(ac.lower()) == norm:
                     return ac
@@ -298,12 +281,10 @@ def sanitize_textcraft_action(action: str, allowed_crafts: Optional[set] = None)
                     return f"get {first_ing}"
             return "inventory"
         return s
-
     return "inventory"
 
 def env_step_textcraft(env, action: str, allowed_crafts: Optional[set] = None):
     a = sanitize_textcraft_action(action, allowed_crafts=allowed_crafts)
-
     out = env.step(a)
     obs0 = out[0] if isinstance(out, tuple) and len(out) >= 1 else str(out)
     if isinstance(obs0, str) and obs0.strip().lower().startswith("could not execute"):
@@ -383,11 +364,6 @@ class EvalAgent:
         )
     @torch.no_grad()
     def eval_policy(self, seed: int, label: str = "Unknown", split_label: str = "dev") -> Tuple[float, Dict[str, float], int, str]:
-        tok = {
-            "high_calls": 0, "high_in_sum": 0, "high_out_sum": 0, "high_ctx_max": 0,
-            "low_calls": 0,  "low_in_sum": 0,  "low_out_sum": 0,  "low_ctx_max": 0,
-        }
-
         try:
             if hasattr(self.eval_env, 'set_split'):
                 self.eval_env.set_split(split_label)
@@ -397,7 +373,6 @@ class EvalAgent:
             pass
         obs0, _ = self.eval_env.reset(seed=seed)
         goal_line, commands_block = parse_textcraft_initial(obs0)
-
         task_description = build_task_description(goal_line, commands_block)
         allowed_crafts: set = set()
         for ln in (commands_block or "").splitlines():
@@ -422,23 +397,15 @@ class EvalAgent:
             state = f"Group action: {ga}. Current observation: {obs}\n"
             state_tok = self.high_policy.tokenizer(state, return_tensors="pt")
             state_tok = _move_to_device(state_tok, self.device)
-
             high_ctx["input_ids"] = torch.cat([high_ctx["input_ids"], state_tok["input_ids"]], dim=1)
             high_ctx["attention_mask"] = torch.cat([high_ctx["attention_mask"], state_tok["attention_mask"]], dim=1)
             high_ctx = _clip_to_ctx(high_ctx, self.max_ctx)
-
-            cur_hi_len = int(high_ctx["input_ids"].shape[1])
-            tok["high_calls"] += 1
-            tok["high_in_sum"] += cur_hi_len
-            tok["high_ctx_max"] = max(tok["high_ctx_max"], cur_hi_len)
             if self.debug:
                 ids = high_ctx["input_ids"][0].detach().cpu().tolist()
                 high_in_text = self.high_policy.tokenizer.decode(ids, skip_special_tokens=False)
-
             subtask_full = self.high_policy.generate_action(high_ctx)[0].strip()
             _hl_lines = [ln.strip() for ln in (subtask_full or '').splitlines() if ln.strip()]
             subtask = (_hl_lines[0] if len(_hl_lines) >= 1 else '').strip()
-          
             subtask = parse_high_subtask(subtask)
             rel_indices: List[int] = []
 
@@ -471,13 +438,6 @@ class EvalAgent:
                 low_ctx["input_ids"] = torch.cat([low_ctx["input_ids"], obs_tok["input_ids"]], dim=1)
                 low_ctx["attention_mask"] = torch.cat([low_ctx["attention_mask"], obs_tok["attention_mask"]], dim=1)
                 low_ctx = _clip_to_ctx(low_ctx, self.max_ctx)
-
-                cur_lo_len = int(low_ctx["input_ids"].shape[1])
-                tok["low_calls"] += 1
-                tok["low_in_sum"] += cur_lo_len
-                tok["low_ctx_max"] = max(tok["low_ctx_max"], cur_lo_len)
-
-                
                 raw_action = self.low_policy.generate_action(low_ctx)[0].strip()
 
                 m = re.match(r"^(.*?);\s*(true|false)\s*$", raw_action, flags=re.IGNORECASE)
@@ -519,8 +479,6 @@ class EvalAgent:
                 low_ctx["input_ids"] = torch.cat([low_ctx["input_ids"], act_tok["input_ids"]], dim=1)
                 low_ctx["attention_mask"] = torch.cat([low_ctx["attention_mask"], act_tok["attention_mask"]], dim=1)
                 low_ctx = _clip_to_ctx(low_ctx, self.max_ctx)
-                tok["low_out_sum"] += int(act_tok["input_ids"].shape[1])
-
                 episode_steps += 1
                 episode_return += float(r)
                 if done:
@@ -532,7 +490,7 @@ class EvalAgent:
                 break
 
         score = float(episode_return)
-        return score, tok, episode_steps, goal_line
+        return score, episode_steps, goal_line
 
     def evaluate_online(self, num_episodes: int = 10, seed_start: int = 0, split: str = "dev") -> float:
         return self.evaluate_split_env_variations(split=split, max_episodes=num_episodes, seed_start=seed_start)
@@ -554,12 +512,11 @@ class EvalAgent:
             seeds = [int(s) for s in seed_list]
             if max_episodes is not None:
                 seeds = seeds[: int(max_episodes)]
-
         scores: List[float] = []
         wins = 0
 
         for i, seed in enumerate(seeds):
-            score, tok, steps, goal_line = self.eval_policy(seed=seed, label="Unknown", split_label=split)
+            score, steps, goal_line = self.eval_policy(seed=seed, label="Unknown", split_label=split)
             won = bool(score > 0.0)
             wins += int(won)
             scores.append(score)
