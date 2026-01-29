@@ -959,8 +959,6 @@ class Multi2:
 
                 if (self.global_step % log_freq) == 0 and self.global_rank == 0:
         
-                        step=self.global_step,
-                    )
                     print(
                         f"[epoch {epoch} | upd {u+1}/{updates_per_epoch} | step {self.global_step}] "
                         f"critic_loss={float(q_loss):.6f} actor_loss={float(a_loss):.6f} "
