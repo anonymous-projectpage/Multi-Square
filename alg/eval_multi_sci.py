@@ -10,11 +10,13 @@ from prompt.inst import high_prompt, low_prompt
 from util.extract import extract_action_done
 import json
 from datetime import datetime
+
 def _clip_to_ctx(tok, max_ctx):
     if 'input_ids' in tok and tok['input_ids'].size(1) > max_ctx:
         tok['input_ids'] = tok['input_ids'][:, -max_ctx:]
         tok['attention_mask'] = tok['attention_mask'][:, -max_ctx:]
     return tok
+    
 from typing import List, Tuple
 def _tokenize_simple(s: str) -> List[str]:
     return s.strip().lower().split()
@@ -49,44 +51,39 @@ class EvalAgent:
         self.low_policy = LowPolicy(args)
         self.high_policy.base.eval()
         self.low_policy.base.eval()
+        
         if hasattr(self.high_policy.base, 'config'):
             self.high_policy.base.config.use_cache = True
         if hasattr(self.low_policy.base, 'config'):
             self.low_policy.base.config.use_cache = True
-        high_path = f"{args['check_path']}/{args['benchmark']}/multi_bc/{args['model_name']}/0.0005/2025-11-08_02-28/best"
-        low_path = f"{args['check_path']}/{args['benchmark']}/multi_rl/{args['model_name']}/A0.0001_C1e-05/lamb7_beta10/low/2026-01-05_11-41/24000"
+            
+        high_path = "/path/to/your/checkpoint"
+        low_path = "/path/to/your/checkpoint"
+        
         Agent.load_high_policy(self, high_path)
         Agent.load_low_policy(self, low_path)
+        
         self.eval_env = ScienceWorldEnv('', envStepLimit=args['env_step_limit'])
         self.task_names = self.eval_env.getTaskNames()
-        base_dir = '/shared/Multi-square/Multi/Multi-Square-LLM/dataset/scienceworld'
+
         run_ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-        tok_dir = os.path.join(base_dir, 'token_stats')
-        self.log_file = args.get('log_result_path', f'./Before_Online_Multi_Qwen_{run_ts}_22.txt')
-        os.makedirs(os.path.dirname(os.path.abspath(self.log_file)), exist_ok=True)
-        os.makedirs(tok_dir, exist_ok=True)
-        self.tok_out = os.path.join(tok_dir, f'Before_Online_Multi_Qwen_{run_ts}_22.txt')
-        if not os.path.exists(self.tok_out):
-            with open(self.tok_out, 'w', encoding='utf-8') as tf:
-                tf.write('split\tepisode_idx\ttask_id\ttask_name\tvariation_id\tlabel\tscore\twon\tsteps\thigh_calls\thigh_in_sum\thigh_out_sum\thigh_ctx_max\tlow_calls\tlow_in_sum\tlow_out_sum\tlow_ctx_max\ttotal_tokens\ttoken_eff\tsub_dist1\tsub_dist2\tact_dist1\tact_dist2\n')
         self.max_ctx = min(getattr(self.high_policy.base.config, 'max_position_embeddings', 8192), args.get('context_cap', 4096))
-    def _append_result_log(self, split, task_id, task_name, variation_id, label, score):
-        line = f'{split}\t{task_id}\t{task_name}\t{variation_id}\t{label}\t{score:.4f}\n'
-        with open(self.log_file, 'a') as f:
-            f.write(line)
-    def _append_token_log(self, split, episode_idx, task_id, task_name, variation_id, label, score, won, steps, tok):
-        total_tokens = tok['high_in_sum'] + tok['high_out_sum'] + tok['low_in_sum'] + tok['low_out_sum']
-        token_eff = score / total_tokens if total_tokens > 0 else 0.0
-        line = f"{split}\t{episode_idx}\t{task_id}\t{task_name}\t{variation_id}\t{label}\t{score:.4f}\t{won}\t{steps}\t{tok['high_calls']}\t{tok['high_in_sum']}\t{tok['high_out_sum']}\t{tok['high_ctx_max']}\t{tok['low_calls']}\t{tok['low_in_sum']}\t{tok['low_out_sum']}\t{tok['low_ctx_max']}\t{total_tokens}\t{token_eff:.8f}\t{tok['sub_d1']:.6f}\t{tok['sub_d2']:.6f}\t{tok['act_d1']:.6f}\t{tok['act_d2']:.6f}\n"
-        with open(self.tok_out, 'a', encoding='utf-8') as tf:
-            tf.write(line)
+
+    
     def load_policy(self, high_path, low_path):
         Agent.load_high_policy(self, high_path)
         Agent.load_low_policy(self, low_path)
+        
     import json
     import numpy as np
+    
     def evaluate_split_env_variations(self, split='dev', annotation_path=None, task_filter=None, max_episodes=None):
-        task_names = ['boil', 'change-the-state-of-matter-of', 'chemistry-mix', 'chemistry-mix-paint-secondary-color', 'chemistry-mix-paint-tertiary-color', 'find-animal', 'find-living-thing', 'find-non-living-thing', 'find-plant', 'freeze', 'grow-fruit', 'grow-plant', 'identify-life-stages-1', 'identify-life-stages-2', 'inclined-plane-determine-angle', 'inclined-plane-friction-named-surfaces', 'inclined-plane-friction-unnamed-surfaces', 'lifespan-longest-lived', 'lifespan-longest-lived-then-shortest-lived', 'lifespan-shortest-lived', 'measure-melting-point-known-substance', 'measure-melting-point-unknown-substance', 'melt', 'mendelian-genetics-known-plant', 'mendelian-genetics-unknown-plant', 'power-component', 'power-component-renewable-vs-nonrenewable-energy', 'test-conductivity', 'test-conductivity-of-unknown-substances', 'use-thermometer']
+        task_names = ['boil', 'change-the-state-of-matter-of', 'chemistry-mix', 'chemistry-mix-paint-secondary-color', 'chemistry-mix-paint-tertiary-color', 
+                      'find-animal', 'find-living-thing', 'find-non-living-thing', 'find-plant', 'freeze', 
+                      'grow-fruit', 'grow-plant', 'identify-life-stages-1', 'identify-life-stages-2', 'inclined-plane-determine-angle', 
+                      'inclined-plane-friction-named-surfaces', 'inclined-plane-friction-unnamed-surfaces', 'lifespan-longest-lived', 'lifespan-longest-lived-then-shortest-lived', 
+                      'lifespan-shortest-lived', 'measure-melting-point-known-substance', 'measure-melting-point-unknown-substance', 'melt', 'mendelian-genetics-known-plant', 
+                      'mendelian-genetics-unknown-plant', 'power-component', 'power-component-renewable-vs-nonrenewable-energy', 'test-conductivity', 'test-conductivity-of-unknown-substances', 'use-thermometer']
         ann_map = {}
         if annotation_path is not None:
             with open(annotation_path, 'r') as f:
@@ -131,9 +128,9 @@ class EvalAgent:
                 print('\n====================================================')
                 print(f'[Episode {episode_counter}] split={split} task_id={task_id} ({task_name}), var_id={var_id}, label={label}')
                 print('====================================================\n')
-                score, tok, steps = self.eval_policy(task_id, var_id, label, split)
+                score, steps = self.eval_policy(task_id, var_id, label, split)
                 won = 1 if score > 0 else 0
-                self._append_token_log(split, episode_counter, task_id, task_name, var_id, label, score, won, steps, tok)
+               
                 if label == 'Seen':
                     total_seen += 1
                     if score > 0:
@@ -154,6 +151,7 @@ class EvalAgent:
                         fail_unknown += 1
             if max_episodes is not None and episode_counter >= max_episodes:
                 break
+        
         def summarize(tag, scores, total, fails):
             if total == 0:
                 print(f'{tag}: no episodes')
@@ -169,16 +167,25 @@ class EvalAgent:
         res_unseen = summarize('Unseen split', scores_unseen, total_unseen, fail_unseen)
         res_unknown = summarize('Unknown split', scores_unknown, total_unknown, fail_unknown)
         return {'Seen': res_seen, 'Unseen': res_unseen, 'Unknown': res_unknown, 'raw_counts': {'total_seen_eval_episodes': total_seen, 'total_unseen_eval_episodes': total_unseen, 'total_unknown_eval_episodes': total_unknown}}
+    
     def evaluate_online(self, num_episodes=10, dev_or_test='dev'):
         total_rewards = []
-        task_names = ['boil', 'change-the-state-of-matter-of', 'chemistry-mix', 'chemistry-mix-paint-secondary-color', 'chemistry-mix-paint-tertiary-color', 'find-animal', 'find-living-thing', 'find-non-living-thing', 'find-plant', 'freeze', 'grow-fruit', 'grow-plant', 'identify-life-stages-1', 'identify-life-stages-2', 'inclined-plane-determine-angle', 'inclined-plane-friction-named-surfaces', 'inclined-plane-friction-unnamed-surfaces', 'lifespan-longest-lived', 'lifespan-longest-lived-then-shortest-lived', 'lifespan-shortest-lived', 'measure-melting-point-known-substance', 'measure-melting-point-unknown-substance', 'melt', 'mendelian-genetics-known-plant', 'mendelian-genetics-unknown-plant', 'power-component', 'power-component-renewable-vs-nonrenewable-energy', 'test-conductivity', 'test-conductivity-of-unknown-substances', 'use-thermometer']
+        task_names = ['boil', 'change-the-state-of-matter-of', 'chemistry-mix', 'chemistry-mix-paint-secondary-color', 'chemistry-mix-paint-tertiary-color', 
+                      'find-animal', 'find-living-thing', 'find-non-living-thing', 'find-plant', 'freeze', 
+                      'grow-fruit', 'grow-plant', 'identify-life-stages-1', 'identify-life-stages-2', 'inclined-plane-determine-angle', 
+                      'inclined-plane-friction-named-surfaces', 'inclined-plane-friction-unnamed-surfaces', 'lifespan-longest-lived', 'lifespan-longest-lived-then-shortest-lived', 
+                      'lifespan-shortest-lived', 'measure-melting-point-known-substance', 'measure-melting-point-unknown-substance', 'melt', 
+                      'mendelian-genetics-known-plant', 'mendelian-genetics-unknown-plant', 'power-component', 'power-component-renewable-vs-nonrenewable-energy', 
+                      'test-conductivity', 'test-conductivity-of-unknown-substances', 'use-thermometer']
         if dev_or_test == 'test':
             vari_nums_list = [9, 9, 8, 9, 9, 10, 10, 10, 10, 9, 10, 10, 5, 4, 0, 0, 0, 10, 10, 10, 10, 0, 9, 0, 0, 5, 5, 10, 10, 10]
         elif dev_or_test == 'dev':
             vari_nums_list = [7, 7, 8, 9, 9, 10, 10, 10, 10, 7, 10, 10, 3, 2, 0, 0, 0, 10, 10, 10, 10, 0, 7, 0, 0, 3, 3, 10, 10, 10]
         else:
             vari_nums_list = [14, 14, 16, 18, 18, 120, 120, 120, 120, 14, 62, 62, 6, 4, 0, 0, 0, 62, 62, 62, 0, 0, 14, 0, 0, 8, 8, 120, 120, 120]
+        
         total_scores, failure, total_task = ([], 0, 0)
+        
         for ep in range(num_episodes):
             task_id = random.choice([17, 18, 19])
             task_name = task_names[task_id]
@@ -204,13 +211,12 @@ class EvalAgent:
             print('No valid tasks/variations evaluated.')
             avg_score = 0.0
         return avg_score
+        
     def eval_policy(self, task_id, vari_id, label, split_label='dev'):
         episode_steps = 0
         task_name = self.task_names[task_id]
         self.eval_env.load(task_name, vari_id)
-        tok = {'high_calls': 0, 'high_in_sum': 0, 'high_out_sum': 0, 'high_ctx_max': 0, 'low_calls': 0, 'low_in_sum': 0, 'low_out_sum': 0, 'low_ctx_max': 0}
-        subtask_gens = []
-        action_gens = []
+    
         obs, _ = self.eval_env.reset()
         task_description = self.eval_env.taskdescription()
         high_traj_token = self.high_policy.tokenizer(high_prompt + ' ' + task_description, return_tensors='pt')
@@ -223,14 +229,8 @@ class EvalAgent:
                 state_token = self.high_policy.tokenizer(state, return_tensors='pt')
                 high_traj_token['input_ids'] = torch.cat([high_traj_token['input_ids'], state_token['input_ids']], dim=1)
                 high_traj_token['attention_mask'] = torch.cat([high_traj_token['attention_mask'], state_token['attention_mask']], dim=1)
-                cur_hi_len = int(high_traj_token['input_ids'].shape[1])
-                tok['high_calls'] += 1
-                tok['high_in_sum'] += cur_hi_len
-                tok['high_ctx_max'] = max(tok['high_ctx_max'], cur_hi_len)
                 subtask = self.high_policy.generate_action(high_traj_token)[0]
-                subtask_gens.append(subtask)
                 subtask_token = self.high_policy.tokenizer(subtask + self.high_policy.tokenizer.eos_token, return_tensors='pt')
-                tok['high_out_sum'] += int(subtask_token['input_ids'].shape[1])
                 traj_subtask.append(subtask)
                 high_traj_token['input_ids'] = torch.cat([high_traj_token['input_ids'], subtask_token['input_ids']], dim=1)
                 high_traj_token['attention_mask'] = torch.cat([high_traj_token['attention_mask'], subtask_token['attention_mask']], dim=1)
@@ -243,35 +243,26 @@ class EvalAgent:
                     obs_token = self.low_policy.tokenizer('Obs: ' + str(obs), return_tensors='pt')
                     low_group_token['input_ids'] = torch.cat([low_group_token['input_ids'], obs_token['input_ids']], dim=1)
                     low_group_token['attention_mask'] = torch.cat([low_group_token['attention_mask'], obs_token['attention_mask']], dim=1)
-                    cur_lo_len = int(low_group_token['input_ids'].shape[1])
-                    tok['low_calls'] += 1
-                    tok['low_in_sum'] += cur_lo_len
-                    tok['low_ctx_max'] = max(tok['low_ctx_max'], cur_lo_len)
                     raw_action = self.low_policy.generate_action(low_group_token)[0]
-                    action_gens.append(raw_action)
                     raw_action_list.append(raw_action)
                     action, subtask_done = extract_action_done(raw_action)
                     env_action = action
                     group_action.append(env_action)
                     action_token = self.low_policy.tokenizer(raw_action + self.low_policy.tokenizer.eos_token, return_tensors='pt')
-                    tok['low_out_sum'] += int(action_token['input_ids'].shape[1])
                     low_group_token['input_ids'] = torch.cat([low_group_token['input_ids'], action_token['input_ids']], dim=1)
                     low_group_token['attention_mask'] = torch.cat([low_group_token['attention_mask'], action_token['attention_mask']], dim=1)
                     obs_, reward, done, info = self.eval_env.step(env_action)
                     reward = reward / 100
                     score = info['score'] / 100
+                    
                     print(f'[Step {episode_steps}] Action: {raw_action}, subtask_done: {subtask_done}, New Obs: {obs_}, Reward: {reward}, Score: {score}')
+                    
                     obs = obs_
                     if episode_steps == self.args['env_step_limit']:
                         done = True
                         break
                 traj_group_action.append(group_action)
+                
         score = max(0, score)
-        self._append_result_log(split=split_label, task_id=task_id, task_name=task_name, variation_id=vari_id, label=label, score=score)
         _episode_cleanup(high_traj_token, low_group_token, state_token if 'state_token' in locals() else None)
-        sub_d1 = distinct_n(subtask_gens, 1)
-        sub_d2 = distinct_n(subtask_gens, 2)
-        act_d1 = distinct_n(action_gens, 1)
-        act_d2 = distinct_n(action_gens, 2)
-        tok['sub_d1'], tok['sub_d2'], tok['act_d1'], tok['act_d2'] = (sub_d1, sub_d2, act_d1, act_d2)
-        return (score, tok, episode_steps)
+        return (score, episode_steps)
